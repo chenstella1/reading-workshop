@@ -1,0 +1,931 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>優華數位版權所有｜互動閱讀練習</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+  <style>
+    :root {
+      --bg-paper: #faf8f3;
+      --ink-main: #1e293b;
+      --accent-teal: #0f766e;
+      --accent-amber: #d97706;
+    }
+    body {
+      background-color: var(--bg-paper);
+      color: var(--ink-main);
+      font-family: "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", system-ui, -apple-system, sans-serif;
+    }
+    .word-chip {
+      display: inline;
+      cursor: pointer;
+      border-radius: 4px;
+      padding: 1px 2px;
+      transition: background-color 0.15s ease, color 0.15s ease;
+    }
+    .word-chip:hover {
+      background-color: #ccfbf1;
+      color: #115e59;
+    }
+    .sentence-block {
+      cursor: pointer;
+      border-left: 3px solid transparent;
+      padding-left: 8px;
+      margin-left: -11px;
+      border-radius: 0 8px 8px 0;
+      transition: background-color 0.15s ease, border-color 0.15s ease;
+    }
+    .sentence-block:hover {
+      background-color: #f0fdfa;
+      border-left-color: #0d9488;
+    }
+    .sentence-block.active-sentence {
+      background-color: #fef3c7;
+      border-left-color: #d97706;
+    }
+    .blank-slot {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 68px;
+      padding: 0 8px;
+      margin: 0 3px;
+      border-bottom: 2px solid #0f766e;
+      background-color: #f0fdfa;
+      color: #0f766e;
+      font-weight: 700;
+      border-radius: 6px 6px 0 0;
+    }
+    @media print {
+      .no-print { display: none !important; }
+      body { background: #fff !important; }
+      .print-card { box-shadow: none !important; border: 1px solid #cbd5e1 !important; }
+    }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col">
+  <!-- 頂部導覽 -->
+  <header class="bg-slate-900 text-white shadow-md no-print sticky top-0 z-30">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 py-3.5 flex flex-wrap items-center justify-between gap-3">
+      <div class="flex items-center gap-3">
+        <div class="w-9 h-9 rounded-xl bg-teal-500/20 border border-teal-400/40 flex items-center justify-center text-teal-300 font-black text-lg">
+          優
+        </div>
+        <div>
+          <div class="flex items-center gap-2">
+            <h1 class="text-base sm:text-lg font-extrabold tracking-wide">優華數位版權所有｜互動閱讀練習</h1>
+            <span class="text-[11px] px-2 py-0.5 rounded-full bg-amber-400/20 text-amber-200 border border-amber-300/30 font-semibold">互動版型</span>
+          </div>
+          <p class="text-xs text-slate-300">支援 PDF / Word / JPG 上傳轉互動練習｜點字句查小字典｜自動選擇題｜原文＋全文翻譯</p>
+        </div>
+      </div>
+
+      <div class="flex items-center gap-2">
+        <button id="btnLoadSample" type="button" class="px-3 py-1.5 rounded-lg bg-teal-600 hover:bg-teal-500 text-white text-xs sm:text-sm font-bold transition">
+          載入範例（Laika 太空小狗）
+        </button>
+        <button id="btnPrintPage" type="button" onclick="window.print()" class="px-3 py-1.5 rounded-lg bg-slate-700 hover:bg-slate-600 text-slate-100 text-xs sm:text-sm font-semibold transition">
+          列印 / 存 PDF
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <main class="max-w-7xl w-full mx-auto px-4 sm:px-6 py-6 grid grid-cols-1 lg:grid-cols-12 gap-6 flex-1">
+    <!-- 左側：管理者上傳與設定面板 -->
+    <aside class="lg:col-span-4 space-y-5 no-print">
+      <section class="bg-white rounded-2xl border border-slate-200/90 shadow-sm p-5 space-y-4">
+        <div class="flex items-center justify-between">
+          <h2 class="text-base font-extrabold text-slate-800 flex items-center gap-2">
+            <span class="w-2 h-5 rounded-full bg-teal-600"></span>
+            管理者檔案上傳區
+          </h2>
+          <span class="text-xs text-slate-400">PDF · DOCX · JPG/PNG</span>
+        </div>
+
+        <label id="dropZone" for="fileInput" class="block border-2 border-dashed border-teal-300 hover:border-teal-500 bg-teal-50/40 hover:bg-teal-50/80 rounded-2xl p-5 text-center cursor-pointer transition">
+          <div class="text-2xl mb-1">📄🖼️📝</div>
+          <div class="text-sm font-bold text-slate-700">點擊選擇或拖曳檔案至此</div>
+          <div class="text-xs text-slate-500 mt-1">支援 PDF、Word (.docx)、JPG / PNG 圖片（含 OCR 辨識）</div>
+          <input id="fileInput" type="file" accept=".pdf,.docx,.jpg,.jpeg,.png,.webp,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,image/*" class="hidden" />
+        </label>
+
+        <div id="uploadStatus" class="hidden rounded-xl px-3.5 py-2.5 text-xs font-medium bg-slate-100 text-slate-700 border border-slate-200"></div>
+
+        <!-- 課程資訊設定 -->
+        <div class="grid grid-cols-2 gap-3 pt-1">
+          <div>
+            <label class="block text-xs font-bold text-slate-600 mb-1">年級／程度標籤</label>
+            <input id="metaLevel" type="text" value="國八程度" class="w-full px-3 py-2 rounded-xl border border-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500" />
+          </div>
+          <div>
+            <label class="block text-xs font-bold text-slate-600 mb-1">題型／主題標籤</label>
+            <input id="metaTopic" type="text" value="克漏字與閱讀測驗" class="w-full px-3 py-2 rounded-xl border border-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500" />
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-xs font-bold text-slate-600 mb-1">文章標題</label>
+          <input id="metaTitle" type="text" value="Laika: The Little Dog Who Traveled to Space" class="w-full px-3 py-2 rounded-xl border border-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500" />
+        </div>
+
+        <div>
+          <div class="flex items-center justify-between mb-1">
+            <label class="text-xs font-bold text-slate-600">英文原文（可自由編輯或由檔案匯入）</label>
+            <button id="btnAutoTranslate" type="button" class="text-xs font-bold text-teal-700 hover:text-teal-900 underline">
+              自動產生全文中文翻譯
+            </button>
+          </div>
+          <textarea id="sourceTextInput" rows="7" class="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs sm:text-sm leading-relaxed focus:outline-none focus:ring-2 focus:ring-teal-500" placeholder="貼上或上傳英文文章..."></textarea>
+        </div>
+
+        <div>
+          <label class="block text-xs font-bold text-slate-600 mb-1">全文中文翻譯（顯示於原文下方）</label>
+          <textarea id="translationTextInput" rows="6" class="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs sm:text-sm leading-relaxed focus:outline-none focus:ring-2 focus:ring-teal-500" placeholder="貼上或自動生成全文中文翻譯..."></textarea>
+        </div>
+
+        <div class="grid grid-cols-2 gap-3 items-center">
+          <div>
+            <label class="block text-xs font-bold text-slate-600 mb-1">自動出題數量</label>
+            <select id="quizCountSelect" class="w-full px-3 py-2 rounded-xl border border-slate-300 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-teal-500">
+              <option value="5" selected>5 題選擇題</option>
+              <option value="8">8 題選擇題</option>
+              <option value="10">10 題選擇題</option>
+            </select>
+          </div>
+          <div class="pt-5">
+            <button id="btnBuildInteractive" type="button" class="w-full py-2.5 px-4 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-sm font-extrabold shadow transition">
+              生成互動練習頁
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <!-- 單字庫管理小卡 -->
+      <section class="bg-white rounded-2xl border border-slate-200/90 shadow-sm p-5 space-y-3">
+        <div class="flex items-center justify-between">
+          <h3 class="text-sm font-extrabold text-slate-800">我的收藏單字庫 (<span id="savedVocabCount">0</span>)</h3>
+          <button id="btnClearVocab" type="button" class="text-xs text-rose-600 hover:underline font-semibold">清空</button>
+        </div>
+        <div id="savedVocabList" class="flex flex-wrap gap-1.5 max-h-36 overflow-y-auto text-xs">
+          <span class="text-slate-400">點選文章中的單字後可加入收藏</span>
+        </div>
+      </section>
+    </aside>
+
+    <!-- 右側：學生互動練習主區（1. 點字句小字典 2. 自動選擇題 3. 上原文下翻譯） -->
+    <section class="lg:col-span-8 space-y-6">
+      <!-- 區塊 3：全文對照區（上面原文、下面翻譯 + 點字/點句查字典） -->
+      <article class="bg-white rounded-2xl border border-slate-200/90 shadow-sm p-5 sm:p-7 print-card space-y-6">
+        <div class="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 pb-4">
+          <div class="space-y-1">
+            <div class="flex flex-wrap items-center gap-2">
+              <span id="badgeLevel" class="px-2.5 py-0.5 rounded-full text-xs font-bold bg-teal-100 text-teal-800">國八程度</span>
+              <span id="badgeTopic" class="px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-100 text-amber-800">克漏字與閱讀測驗</span>
+              <span class="text-xs font-semibold text-slate-400">優華數位版權所有</span>
+            </div>
+            <h2 id="displayTitle" class="text-xl sm:text-2xl font-black text-slate-900">Laika: The Little Dog Who Traveled to Space</h2>
+          </div>
+
+          <div class="flex items-center gap-2 no-print text-xs">
+            <span class="px-2.5 py-1 rounded-lg bg-teal-50 text-teal-700 border border-teal-200 font-semibold">
+              💡 點「單字」查詞義
+            </span>
+            <span class="px-2.5 py-1 rounded-lg bg-amber-50 text-amber-800 border border-amber-200 font-semibold">
+              💬 點「整句」翻句子
+            </span>
+          </div>
+        </div>
+
+        <!-- 上：英文原文互動區 -->
+        <div class="space-y-2.5">
+          <div class="flex items-center justify-between">
+            <h3 class="text-sm font-extrabold uppercase tracking-wider text-teal-800 bg-teal-50 px-3 py-1 rounded-lg border border-teal-200/70">
+              ▲ 英文原文（點擊任一單字查字典；點擊整句看句意與解析）
+            </h3>
+            <button id="btnSpeakPassage" type="button" class="no-print text-xs font-bold text-teal-700 hover:bg-teal-50 px-2.5 py-1 rounded-lg border border-teal-200 transition">
+              🔊 朗讀原文
+            </button>
+          </div>
+          <div id="interactivePassage" class="text-base sm:text-[17px] leading-[2.05] text-slate-800 space-y-3 pt-1"></div>
+        </div>
+
+        <!-- 下：全文中文翻譯區 -->
+        <div class="border-t-2 border-dashed border-slate-200 pt-5 space-y-2.5">
+          <div class="flex items-center justify-between">
+            <h3 class="text-sm font-extrabold uppercase tracking-wider text-amber-900 bg-amber-50 px-3 py-1 rounded-lg border border-amber-200/80">
+              ▼ 全文中文翻譯
+            </h3>
+            <span class="text-xs text-slate-400">原文對照譯文</span>
+          </div>
+          <div id="displayTranslation" class="text-sm sm:text-base leading-[1.95] text-slate-700 bg-amber-50/40 rounded-2xl p-4 sm:p-5 border border-amber-200/60 space-y-2.5"></div>
+        </div>
+      </article>
+
+      <!-- 區塊 2：自動生成選擇題區 -->
+      <section class="bg-white rounded-2xl border border-slate-200/90 shadow-sm p-5 sm:p-7 print-card space-y-5">
+        <div class="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 pb-4">
+          <div>
+            <h3 class="text-lg sm:text-xl font-black text-slate-900 flex items-center gap-2">
+              <span>自動生成選擇題測驗</span>
+              <span id="quizScoreBadge" class="text-xs font-extrabold px-2.5 py-1 rounded-full bg-slate-100 text-slate-700">
+                作答進度：0 / 5
+              </span>
+            </h3>
+            <p class="text-xs text-slate-500 mt-0.5">依據上傳文章的重點詞彙與句意自動出題，點擊選項立即批改並顯示解析。</p>
+          </div>
+          <div class="flex items-center gap-2 no-print">
+            <button id="btnRegenQuiz" type="button" class="px-3 py-1.5 rounded-xl bg-teal-600 hover:bg-teal-500 text-white text-xs sm:text-sm font-bold transition">
+              重新出題
+            </button>
+            <button id="btnResetQuiz" type="button" class="px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs sm:text-sm font-bold transition">
+              清除作答
+            </button>
+          </div>
+        </div>
+
+        <div id="quizList" class="space-y-4"></div>
+      </section>
+    </section>
+  </main>
+
+  <!-- 區塊 1：小字典彈出視窗（查單字 / 查句子） -->
+  <div id="dictModal" class="fixed inset-0 z-50 hidden items-center justify-center bg-slate-950/50 backdrop-blur-[2px] p-4" role="dialog" aria-modal="true">
+    <div class="bg-white rounded-3xl max-w-lg w-full shadow-2xl border border-slate-200 overflow-hidden animate-fadeIn">
+      <div class="bg-slate-900 text-white px-6 py-4 flex items-center justify-between">
+        <div class="flex items-center gap-2">
+          <span id="dictModeBadge" class="text-xs font-bold px-2.5 py-0.5 rounded-full bg-teal-500/20 text-teal-300 border border-teal-400/30">單字小字典</span>
+          <span class="text-xs text-slate-400">優華數位版權所有</span>
+        </div>
+        <button id="btnCloseDict" type="button" class="text-slate-300 hover:text-white text-xl font-bold leading-none px-2">×</button>
+      </div>
+
+      <div class="p-6 space-y-4">
+        <div class="flex items-start justify-between gap-3">
+          <div>
+            <div id="dictQueryText" class="text-xl sm:text-2xl font-black text-slate-900 break-words"></div>
+            <div id="dictPhonetic" class="text-xs text-teal-700 font-semibold mt-0.5"></div>
+          </div>
+          <button id="btnSpeakDict" type="button" class="shrink-0 px-3 py-1.5 rounded-xl bg-teal-50 hover:bg-teal-100 text-teal-800 border border-teal-200 text-xs font-bold transition">
+            🔊 發音
+          </button>
+        </div>
+
+        <div class="bg-slate-50 rounded-2xl p-4 border border-slate-200 space-y-2">
+          <div class="text-xs font-bold text-slate-500">中文釋義 / 翻譯</div>
+          <div id="dictMeaning" class="text-sm sm:text-base font-bold text-slate-800 leading-relaxed">查詢中...</div>
+        </div>
+
+        <div id="dictNoteBox" class="bg-amber-50/70 rounded-2xl p-3.5 border border-amber-200/80 text-xs sm:text-sm text-slate-700 leading-relaxed"></div>
+
+        <div class="flex items-center justify-between gap-2 pt-2">
+          <button id="btnSaveWord" type="button" class="px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs sm:text-sm font-extrabold transition">
+            ★ 加入單字庫
+          </button>
+          <button id="btnOkDict" type="button" class="px-5 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs sm:text-sm font-bold transition">
+            知道了
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    if (window.pdfjsLib) {
+      pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+    }
+
+    const SAMPLE_DATA = {
+      level: "國八程度",
+      topic: "克漏字與閱讀測驗",
+      title: "Laika: The Little Dog Who Traveled to Space",
+      passage: [
+        "In 1957, Laika was a small stray dog who had no home on the cold streets of Russia.",
+        "She looked cute and very quiet, and her fur felt soft.",
+        "Because she was friendly and calm, scientists chose her for a special trip to space.",
+        "They put her inside a small spaceship which was named Sputnik 2.",
+        "Inside the dark box, the air smelled strange, and the small room felt cold at first.",
+        "When the rocket went up, the loud noise sounded like thunder.",
+        "Laika could hear the loud machines and feel the ship shaking.",
+        "Everything around her was scary.",
+        "For many years, people thought Laika died peacefully after a week.",
+        "However, the true story sounded very sad.",
+        "In fact, the machine inside the spaceship broke, so the room quickly became too hot.",
+        "Poor Laika died from the heat and fear just a few hours later.",
+        "She never came back to Earth.",
+        "Today, Laika's story teaches us to respect life.",
+        "Animals are our friends, not just tools for science.",
+        "They can feel pain and fear, just like us.",
+        "We should always be kind to every living animal and protect them."
+      ].join(" "),
+      translation: [
+        "1957年，萊卡是一隻在俄羅斯寒冷街頭無家可歸的小流浪狗。",
+        "牠看起來可愛又安靜，毛皮摸起來很柔軟。",
+        "因為牠友善又冷靜，科學家挑選牠進行一趟特別的太空之旅。",
+        "他們把牠放進一艘名為史普尼克2號的小型太空船裡。",
+        "在黑暗的艙內，空氣聞起來很奇怪，小空間一開始感覺很冷。",
+        "當火箭升空時，巨大的聲響聽起來像打雷。",
+        "萊卡能聽見吵雜的機器聲，並感覺到太空船在震動。",
+        "周圍的一切都很可怕。",
+        "多年來，人們以為萊卡在一週後平靜地死去。",
+        "然而，真實的故事聽起來非常難過。",
+        "事實上，太空船裡的機器壞了，所以艙內很快就變得太熱。",
+        "可憐的萊卡在幾小時後就因高溫與恐懼而死去。",
+        "牠再也沒有回到地球。",
+        "如今，萊卡的故事教導我們要尊重生命。",
+        "動物是我們的朋友，不只是科學的工具。",
+        "牠們像我們一樣會感到疼痛與恐懼。",
+        "我們應該永遠對每一個活著的動物友善並保護牠們。"
+      ].join("\n")
+    };
+
+    const BUILTIN_DICT = {
+      "stray": { pos: "adj. / n.", zh: "走失的；流浪的；流浪動物", note: "stray dog 指「流浪狗」。" },
+      "russia": { pos: "n.", zh: "俄羅斯", note: "專有名詞，首字母需大寫。" },
+      "quiet": { pos: "adj.", zh: "安靜的；寂靜的", note: "連綴動詞 look / feel / be 後面常接形容詞 quiet（注意與副詞 quietly 區分）。" },
+      "fur": { pos: "n.", zh: "（動物的）軟毛；毛皮", note: "不可數名詞，指貓狗身上的細毛。" },
+      "soft": { pos: "adj.", zh: "柔軟的；柔和的", note: "feel soft 表示「摸起來柔軟」。" },
+      "friendly": { pos: "adj.", zh: "友善的；友好的", note: "雖然字尾有 -ly，但它是形容詞；常用搭配 be friendly to sb." },
+      "calm": { pos: "adj. / v.", zh: "冷靜的；平靜的；使平靜", note: "stay calm 表示「保持冷靜」。" },
+      "scientist": { pos: "n.", zh: "科學家", note: "由 science（科學）加上 -ist 構成。" },
+      "chose": { pos: "v.", zh: "選擇（choose 的過去式）", note: "三態變化：choose - chose - chosen。" },
+      "choose": { pos: "v.", zh: "選擇；挑選", note: "過去式為 chose。" },
+      "space": { pos: "n.", zh: "太空；空間", note: "travel into space「進入太空」（space 指太空時通常不加冠詞）。" },
+      "spaceship": { pos: "n.", zh: "太空船", note: "由 space + ship 合成的複合名詞。" },
+      "smelled": { pos: "v.", zh: "聞起來（smell 的過去式）", note: "感官／連綴動詞 smell + 形容詞，如 smelled strange。" },
+      "strange": { pos: "adj.", zh: "奇怪的；陌生的", note: "air smelled strange「空氣聞起來很奇怪」。" },
+      "rocket": { pos: "n.", zh: "火箭", note: "when the rocket went up「當火箭升空時」。" },
+      "noise": { pos: "n.", zh: "噪音；聲響", note: "loud noise「巨大的聲響」。" },
+      "sounded": { pos: "v.", zh: "聽起來（sound 的過去式）", note: "sound like + 名詞，表示「聽起來像……」。" },
+      "thunder": { pos: "n.", zh: "雷；雷聲", note: "sound like thunder「聽起來像打雷」。" },
+      "machine": { pos: "n.", zh: "機器", note: "可數名詞，複數為 machines。" },
+      "shaking": { pos: "v. / adj.", zh: "搖晃；震動（shake 的現在分詞）", note: "feel + 受詞 + V-ing / V，表示「感覺到……正在震動」。" },
+      "shake": { pos: "v.", zh: "搖動；震動", note: "三態變化：shake - shook - shaken。" },
+      "scary": { pos: "adj.", zh: "可怕的；嚇人的", note: "scary 偏向形容事物本身可怕；scared 偏向形容人或動物「感到害怕的」。" },
+      "scared": { pos: "adj.", zh: "害怕的；受驚嚇的", note: "常用 be / feel scared。" },
+      "peacefully": { pos: "adv.", zh: "平靜地；安詳地", note: "副詞修飾動詞 died，由 peaceful + -ly 構成。" },
+      "broke": { pos: "v.", zh: "弄壞；損壞；打破（break 的過去式）", note: "三態變化：break - broke - broken。" },
+      "quickly": { pos: "adv.", zh: "快速地；很快地", note: "副詞修飾動詞 became，由 quick + -ly 構成。" },
+      "heat": { pos: "n.", zh: "熱；高溫", note: "die from the heat「死於高溫」。" },
+      "fear": { pos: "n. / v.", zh: "恐懼；害怕", note: "die from the heat and fear「因高溫與恐懼而死」。" },
+      "later": { pos: "adv.", zh: "之後；稍後", note: "a few hours later「幾小時後」。" },
+      "earth": { pos: "n.", zh: "地球", note: "指行星「地球」時首字母常大寫 Earth，前面常加 the。" },
+      "teaches": { pos: "v.", zh: "教導；教（teach 的第三人稱單數現在式）", note: "teach sb. to V「教某人做某事」。" },
+      "respect": { pos: "v. / n.", zh: "尊重；敬重", note: "respect life「尊重生命」。" },
+      "pain": { pos: "n.", zh: "疼痛；痛苦", note: "feel pain「感到疼痛」。" },
+      "protect": { pos: "v.", zh: "保護", note: "protect animals「保護動物」。" }
+    };
+
+    const state = {
+      level: SAMPLE_DATA.level,
+      topic: SAMPLE_DATA.topic,
+      title: SAMPLE_DATA.title,
+      passage: SAMPLE_DATA.passage,
+      translation: SAMPLE_DATA.translation,
+      sentences: [],
+      questions: [],
+      answers: {},
+      savedVocab: [],
+      activeDict: null
+    };
+
+    const $ = (id) => document.getElementById(id);
+
+    function setStatus(msg, tone = "info") {
+      const el = $("uploadStatus");
+      el.classList.remove("hidden", "bg-slate-100", "text-slate-700", "border-slate-200", "bg-teal-50", "text-teal-800", "border-teal-200", "bg-amber-50", "text-amber-900", "border-amber-200", "bg-rose-50", "text-rose-800", "border-rose-200");
+      if (tone === "success") {
+        el.classList.add("bg-teal-50", "text-teal-800", "border-teal-200");
+      } else if (tone === "warn") {
+        el.classList.add("bg-amber-50", "text-amber-900", "border-amber-200");
+      } else if (tone === "error") {
+        el.classList.add("bg-rose-50", "text-rose-800", "border-rose-200");
+      } else {
+        el.classList.add("bg-slate-100", "text-slate-700", "border-slate-200");
+      }
+      el.textContent = msg;
+    }
+
+    function splitSentences(text) {
+      const clean = (text || "").replace(/\r\n/g, "\n").trim();
+      if (!clean) return [];
+      const matches = clean.match(/[^.!?。！？\n]+(?:[.!?。！？]+|$)/g) || [clean];
+      return matches.map((s) => s.trim()).filter(Boolean);
+    }
+
+    function renderPassageInteractive() {
+      const container = $("interactivePassage");
+      container.innerHTML = "";
+      state.sentences = splitSentences(state.passage);
+
+      if (state.sentences.length === 0) {
+        container.innerHTML = '<p class="text-slate-400">尚未輸入英文原文。</p>';
+        return;
+      }
+
+      state.sentences.forEach((sentence, sIdx) => {
+        const p = document.createElement("p");
+        p.className = "sentence-block";
+        p.dataset.sIdx = String(sIdx);
+        p.title = "點擊此句可查看整句翻譯與文法提示";
+
+        const tokens = sentence.split(/(\s+)/);
+        tokens.forEach((tok) => {
+          if (!tok) return;
+          if (/^\s+$/.test(tok)) {
+            p.appendChild(document.createTextNode(tok));
+            return;
+          }
+          const wordMatch = tok.match(/^([^A-Za-z']*)([A-Za-z][A-Za-z'-]*)([^A-Za-z']*)$/);
+          if (wordMatch) {
+            const [, prefix, coreWord, suffix] = wordMatch;
+            if (prefix) p.appendChild(document.createTextNode(prefix));
+            const span = document.createElement("span");
+            span.className = "word-chip";
+            span.textContent = coreWord;
+            span.title = `點擊查詢「${coreWord}」`;
+            span.addEventListener("click", (ev) => {
+              ev.stopPropagation();
+              openWordDictionary(coreWord, sentence);
+            });
+            p.appendChild(span);
+            if (suffix) p.appendChild(document.createTextNode(suffix));
+          } else {
+            p.appendChild(document.createTextNode(tok));
+          }
+        });
+
+        p.addEventListener("click", () => {
+          document.querySelectorAll(".sentence-block.active-sentence").forEach((el) => el.classList.remove("active-sentence"));
+          p.classList.add("active-sentence");
+          openSentenceDictionary(sentence, sIdx);
+        });
+
+        container.appendChild(p);
+      });
+    }
+
+    function renderTranslation() {
+      const box = $("displayTranslation");
+      const lines = (state.translation || "")
+        .split(/\n+/)
+        .map((l) => l.trim())
+        .filter(Boolean);
+
+      if (lines.length === 0) {
+        box.innerHTML = '<p class="text-slate-400">尚未填入全文中文翻譯，可點擊左側「自動產生全文中文翻譯」或手動輸入。</p>';
+        return;
+      }
+
+      box.innerHTML = lines.map((line) => `<p>${escapeHtml(line)}</p>`).join("");
+    }
+
+    function escapeHtml(str) {
+      return String(str)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;");
+    }
+
+    function speakText(text) {
+      if (!("speechSynthesis" in window) || !text) return;
+      window.speechSynthesis.cancel();
+      const hasEnglish = /[A-Za-z]/.test(text);
+      const utter = new SpeechSynthesisUtterance(text);
+      utter.lang = hasEnglish ? "en-US" : "zh-TW";
+      utter.rate = 0.95;
+      window.speechSynthesis.speak(utter);
+    }
+
+    async function translateViaFreeApi(text, sl = "en", tl = "zh-TW") {
+      const trimmed = (text || "").trim();
+      if (!trimmed) return "";
+      const chunks = [];
+      const sentences = splitSentences(trimmed);
+      let buf = "";
+      for (const s of sentences) {
+        if ((buf + " " + s).length > 420 && buf) {
+          chunks.push(buf.trim());
+          buf = s;
+        } else {
+          buf = buf ? buf + " " + s : s;
+        }
+      }
+      if (buf) chunks.push(buf.trim());
+
+      const out = [];
+      for (const chunk of chunks) {
+        const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=${encodeURIComponent(sl)}&tl=${encodeURIComponent(tl)}&dt=t&q=${encodeURIComponent(chunk)}`;
+        const resp = await fetch(url);
+        if (!resp.ok) throw new Error("翻譯服務暫時無法連線");
+        const data = await resp.json();
+        const translatedPart = (data[0] || []).map((item) => item[0] || "").join("");
+        out.push(translatedPart.trim());
+      }
+      return out.join("\n");
+    }
+
+    async function openWordDictionary(word, contextSentence = "") {
+      const lower = word.toLowerCase();
+      state.activeDict = { mode: "word", query: word, meaning: "查詢中...", note: "" };
+
+      $("dictModeBadge").textContent = "單字小字典";
+      $("dictQueryText").textContent = word;
+      $("dictPhonetic").textContent = contextSentence ? `例句：${contextSentence}` : "";
+      $("dictMeaning").textContent = "查詢中文釋義中...";
+      $("dictNoteBox").textContent = "正在載入詞性與學習提示...";
+      $("btnSaveWord").classList.remove("hidden");
+      $("dictModal").classList.remove("hidden");
+      $("dictModal").classList.add("flex");
+
+      speakText(word);
+
+      if (BUILTIN_DICT[lower]) {
+        const entry = BUILTIN_DICT[lower];
+        state.activeDict.meaning = `${entry.pos} ${entry.zh}`;
+        state.activeDict.note = entry.note;
+        $("dictMeaning").textContent = state.activeDict.meaning;
+        $("dictNoteBox").textContent = entry.note;
+        return;
+      }
+
+      try {
+        const zh = await translateViaFreeApi(word, "en", "zh-TW");
+        state.activeDict.meaning = zh || "查無中文釋義";
+        state.activeDict.note = `已為您查詢「${word}」的中文意思，可按「加入單字庫」收藏複習。`;
+        $("dictMeaning").textContent = state.activeDict.meaning;
+        $("dictNoteBox").textContent = state.activeDict.note;
+      } catch {
+        state.activeDict.meaning = "目前離線或無法連線線上詞典，可按上方「發音」聆聽讀音。";
+        state.activeDict.note = "建議連接網路以使用即時中英翻譯。";
+        $("dictMeaning").textContent = state.activeDict.meaning;
+        $("dictNoteBox").textContent = state.activeDict.note;
+      }
+    }
+
+    async function openSentenceDictionary(sentence, sIdx) {
+      state.activeDict = { mode: "sentence", query: sentence, meaning: "翻譯整句中...", note: "" };
+
+      $("dictModeBadge").textContent = "句子小字典";
+      $("dictQueryText").textContent = sentence;
+      $("dictPhonetic").textContent = `第 ${sIdx + 1} 句`;
+      $("dictMeaning").textContent = "正在翻譯此句...";
+      $("dictNoteBox").textContent = "點擊「發音」可朗讀整句英文。";
+      $("btnSaveWord").classList.add("hidden");
+      $("dictModal").classList.remove("hidden");
+      $("dictModal").classList.add("flex");
+
+      const transLines = (state.translation || "").split(/\n+/).map((s) => s.trim()).filter(Boolean);
+      if (transLines[sIdx] && state.sentences.length === transLines.length) {
+        state.activeDict.meaning = transLines[sIdx];
+        $("dictMeaning").textContent = transLines[sIdx];
+        $("dictNoteBox").textContent = "已直接對應下方全文翻譯；若想查其中某個單字，可單獨點選該單字。";
+        return;
+      }
+
+      try {
+        const zhSentence = await translateViaFreeApi(sentence, "en", "zh-TW");
+        state.activeDict.meaning = zhSentence || "無法取得句意翻譯";
+        $("dictMeaning").textContent = state.activeDict.meaning;
+        $("dictNoteBox").textContent = "已自動翻譯此句；點選單字可查詢個別詞彙釋義。";
+      } catch {
+        state.activeDict.meaning = "目前無法連線翻譯服務，請稍後再試。";
+        $("dictMeaning").textContent = state.activeDict.meaning;
+      }
+    }
+
+    function closeDictionary() {
+      $("dictModal").classList.add("hidden");
+      $("dictModal").classList.remove("flex");
+      document.querySelectorAll(".sentence-block.active-sentence").forEach((el) => el.classList.remove("active-sentence"));
+    }
+
+    function renderSavedVocab() {
+      const wrap = $("savedVocabList");
+      $("savedVocabCount").textContent = String(state.savedVocab.length);
+      if (state.savedVocab.length === 0) {
+        wrap.innerHTML = '<span class="text-slate-400">點選文章中的單字後可加入收藏</span>';
+        return;
+      }
+      wrap.innerHTML = state.savedVocab.map((item, idx) => `
+        <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-teal-50 text-teal-900 border border-teal-200 font-semibold">
+          <button type="button" onclick="openWordDictionary('${escapeHtml(item.word)}')" class="hover:underline">${escapeHtml(item.word)}</button>
+          <span class="text-slate-500 font-normal">· ${escapeHtml(item.meaning.slice(0, 12))}</span>
+          <button type="button" onclick="removeSavedVocab(${idx})" class="text-rose-500 hover:text-rose-700 font-bold">×</button>
+        </span>
+      `).join("");
+    }
+
+    function removeSavedVocab(idx) {
+      state.savedVocab.splice(idx, 1);
+      renderSavedVocab();
+    }
+
+    function generateAutoQuestions() {
+      const count = parseInt($("quizCountSelect").value, 10) || 5;
+      const sentences = splitSentences(state.passage);
+      const allWords = (state.passage.match(/[A-Za-z]{4,}/g) || [])
+        .map((w) => w.toLowerCase())
+        .filter((w) => !["that", "this", "with", "from", "they", "them", "their", "there", "were", "have", "what", "when", "into", "some", "very", "after", "before", "about", "could", "would", "should"].includes(w));
+
+      const uniquePool = [...new Set(allWords)];
+      const candidates = sentences.filter((s) => {
+        const ws = s.match(/[A-Za-z]{4,}/g) || [];
+        return ws.length >= 4 && uniquePool.some((u) => s.toLowerCase().includes(u));
+      });
+
+      const chosenSentences = [...candidates].sort(() => Math.random() - 0.5).slice(0, count);
+      const questions = [];
+
+      chosenSentences.forEach((sent, idx) => {
+        const sentWords = (sent.match(/\b[A-Za-z]{4,}\b/g) || [])
+          .filter((w) => uniquePool.includes(w.toLowerCase()));
+        const targetWord = (sentWords[Math.floor(Math.random() * sentWords.length)] || "space");
+        const targetLower = targetWord.toLowerCase();
+
+        const distractors = uniquePool
+          .filter((w) => w !== targetLower && Math.abs(w.length - targetLower.length) <= 4)
+          .sort(() => Math.random() - 0.5)
+          .slice(0, 3);
+
+        while (distractors.length < 3) {
+          const fallback = ["friendly", "quiet", "rocket", "protect", "respect", "scary", "machine", "future"]
+            .find((f) => f !== targetLower && !distractors.includes(f)) || "story";
+          distractors.push(fallback);
+        }
+
+        const options = [targetLower, ...distractors].sort(() => Math.random() - 0.5);
+        const answer = options.indexOf(targetLower);
+        const clozeSentence = sent.replace(new RegExp(`\\b${targetWord}\\b`, "i"), "_____");
+        const dictInfo = BUILTIN_DICT[targetLower];
+
+        questions.push({
+          id: `q_${Date.now()}_${idx}`,
+          questionText: clozeSentence,
+          options,
+          answer,
+          targetWord: targetLower,
+          explanation: dictInfo
+            ? `正確答案為「${targetLower}」（${dictInfo.zh}）。${dictInfo.note}`
+            : `正確答案為「${targetLower}」，請結合前後文句意判斷最合適的詞彙。`
+        });
+      });
+
+      state.questions = questions;
+      state.answers = {};
+      renderQuizList();
+    }
+
+    function renderQuizList() {
+      const listEl = $("quizList");
+      const total = state.questions.length;
+      const answeredCount = Object.keys(state.answers).length;
+      const correctCount = Object.entries(state.answers).filter(([qIdx, optIdx]) => state.questions[Number(qIdx)]?.answer === optIdx).length;
+
+      $("quizScoreBadge").textContent = `作答進度：${answeredCount} / ${total}（答對 ${correctCount} 題）`;
+
+      if (total === 0) {
+        listEl.innerHTML = '<p class="text-slate-400 text-sm">文章內容較短，請輸入或上傳更多英文段落以自動生成選擇題。</p>';
+        return;
+      }
+
+      const labels = ["A", "B", "C", "D"];
+      listEl.innerHTML = state.questions.map((q, qIdx) => {
+        const picked = state.answers[qIdx];
+        const hasPicked = picked !== undefined;
+        const isCorrect = hasPicked && picked === q.answer;
+
+        const optionsHtml = q.options.map((opt, oIdx) => {
+          let styleClass = "border-slate-200 bg-white hover:bg-slate-50 text-slate-800";
+          if (hasPicked) {
+            if (oIdx === q.answer) {
+              styleClass = "border-emerald-500 bg-emerald-50 text-emerald-900 font-bold";
+            } else if (oIdx === picked && oIdx !== q.answer) {
+              styleClass = "border-rose-400 bg-rose-50 text-rose-900";
+            } else {
+              styleClass = "border-slate-200 bg-slate-50/60 text-slate-500";
+            }
+          }
+          return `
+            <button type="button" onclick="selectAnswer(${qIdx}, ${oIdx})" class="w-full text-left px-4 py-2.5 rounded-xl border text-sm transition flex items-center gap-2.5 ${styleClass}">
+              <span class="w-6 h-6 rounded-full border border-current flex items-center justify-center text-xs font-extrabold shrink-0">${labels[oIdx]}</span>
+              <span>${escapeHtml(opt)}</span>
+            </button>
+          `;
+        }).join("");
+
+        const feedbackHtml = hasPicked ? `
+          <div class="mt-3 p-3.5 rounded-xl text-xs sm:text-sm leading-relaxed ${isCorrect ? "bg-emerald-50 text-emerald-900 border border-emerald-200" : "bg-amber-50 text-amber-950 border border-amber-200"}">
+            <div class="font-extrabold mb-0.5">${isCorrect ? "✓ 答對了！" : `✗ 再想想，正確選項為 (${labels[q.answer]}) ${escapeHtml(q.options[q.answer])}`}</div>
+            <div>${escapeHtml(q.explanation)}</div>
+          </div>
+        ` : "";
+
+        return `
+          <div class="rounded-2xl border border-slate-200/90 bg-slate-50/40 p-4 sm:p-5">
+            <div class="text-xs font-bold text-teal-700 mb-1">第 ${qIdx + 1} 題</div>
+            <div class="text-sm sm:text-base font-bold text-slate-900 mb-3 leading-relaxed">${escapeHtml(q.questionText)}</div>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              ${optionsHtml}
+            </div>
+            ${feedbackHtml}
+          </div>
+        `;
+      }).join("");
+    }
+
+    function selectAnswer(qIdx, oIdx) {
+      state.answers[qIdx] = oIdx;
+      renderQuizList();
+    }
+
+    async function extractTextFromPdf(file) {
+      const buf = await file.arrayBuffer();
+      const pdf = await pdfjsLib.getDocument({ data: buf }).promise;
+      let fullText = "";
+      for (let p = 1; p <= pdf.numPages; p++) {
+        const page = await pdf.getPage(p);
+        const content = await page.getTextContent();
+        const pageStr = content.items.map((it) => it.str).join(" ");
+        fullText += pageStr + "\n";
+      }
+      return fullText.trim();
+    }
+
+    async function extractTextFromDocx(file) {
+      const buf = await file.arrayBuffer();
+      const result = await mammoth.extractRawText({ arrayBuffer: buf });
+      return (result.value || "").trim();
+    }
+
+    async function extractTextFromImage(file) {
+      setStatus("正在進行圖片文字辨識（OCR），請稍候...", "info");
+      const worker = await Tesseract.createWorker("eng+chi_tra");
+      const { data } = await worker.recognize(file);
+      await worker.terminate();
+      return (data.text || "").trim();
+    }
+
+    async function handleFileUpload(file) {
+      if (!file) return;
+      const name = file.name.toLowerCase();
+      setStatus(`正在讀取檔案「${file.name}」...`, "info");
+
+      try {
+        let extracted = "";
+        if (name.endsWith(".pdf") || file.type === "application/pdf") {
+          extracted = await extractTextFromPdf(file);
+        } else if (name.endsWith(".docx") || file.type.includes("wordprocessingml")) {
+          extracted = await extractTextFromDocx(file);
+        } else if (/\.(jpg|jpeg|png|webp)$/.test(name) || file.type.startsWith("image/")) {
+          extracted = await extractTextFromImage(file);
+        } else {
+          setStatus("不支援的檔案格式，請上傳 PDF、Word (.docx) 或 JPG/PNG 圖片。", "error");
+          return;
+        }
+
+        if (!extracted) {
+          setStatus("檔案中未擷取到文字，若是掃描版 PDF 建議轉為 JPG 後重新上傳。", "warn");
+          return;
+        }
+
+        const cleaned = extracted.replace(/\s+/g, " ").trim();
+        $("sourceTextInput").value = cleaned;
+        const firstLine = file.name.replace(/\.[^.]+$/, "");
+        $("metaTitle").value = firstLine;
+
+        setStatus(`已成功從「${file.name}」擷取內容，正在自動翻譯與出題...`, "success");
+        await applyInputsAndGenerate(true);
+      } catch (err) {
+        setStatus(`檔案處理失敗：${err.message || err}`, "error");
+      }
+    }
+
+    async function applyInputsAndGenerate(autoTranslateMissing = false) {
+      state.level = ($("metaLevel").value || "一般程度").trim();
+      state.topic = ($("metaTopic").value || "閱讀測驗").trim();
+      state.title = ($("metaTitle").value || "互動閱讀文章").trim();
+      state.passage = ($("sourceTextInput").value || "").trim();
+      state.translation = ($("translationTextInput").value || "").trim();
+
+      $("badgeLevel").textContent = state.level;
+      $("badgeTopic").textContent = state.topic;
+      $("displayTitle").textContent = state.title;
+
+      renderPassageInteractive();
+
+      if (autoTranslateMissing && state.passage && !state.translation) {
+        try {
+          const zh = await translateViaFreeApi(state.passage, "en", "zh-TW");
+          state.translation = zh;
+          $("translationTextInput").value = zh;
+        } catch {
+          // 保留空白或手動填寫提示
+        }
+      }
+
+      renderTranslation();
+      generateAutoQuestions();
+    }
+
+    function loadSample() {
+      $("metaLevel").value = SAMPLE_DATA.level;
+      $("metaTopic").value = SAMPLE_DATA.topic;
+      $("metaTitle").value = SAMPLE_DATA.title;
+      $("sourceTextInput").value = SAMPLE_DATA.passage;
+      $("translationTextInput").value = SAMPLE_DATA.translation;
+      setStatus("已載入「Laika: The Little Dog Who Traveled to Space」示範版型。", "success");
+      applyInputsAndGenerate(false);
+    }
+
+    $("btnLoadSample").addEventListener("click", loadSample);
+    $("btnBuildInteractive").addEventListener("click", () => applyInputsAndGenerate(false));
+    $("btnRegenQuiz").addEventListener("click", generateAutoQuestions);
+    $("btnResetQuiz").addEventListener("click", () => {
+      state.answers = {};
+      renderQuizList();
+    });
+
+    $("btnAutoTranslate").addEventListener("click", async () => {
+      const src = ($("sourceTextInput").value || "").trim();
+      if (!src) {
+        setStatus("請先輸入或上傳英文原文再產生翻譯。", "warn");
+        return;
+      }
+      setStatus("正在自動生成全文中文翻譯...", "info");
+      try {
+        const zh = await translateViaFreeApi(src, "en", "zh-TW");
+        $("translationTextInput").value = zh;
+        state.translation = zh;
+        renderTranslation();
+        setStatus("已完成全文中文翻譯！", "success");
+      } catch (err) {
+        setStatus(`自動翻譯失敗：${err.message || err}`, "error");
+      }
+    });
+
+    $("btnSpeakPassage").addEventListener("click", () => speakText(state.passage));
+    $("btnCloseDict").addEventListener("click", closeDictionary);
+    $("btnOkDict").addEventListener("click", closeDictionary);
+    $("dictModal").addEventListener("click", (e) => {
+      if (e.target === $("dictModal")) closeDictionary();
+    });
+
+    $("btnSpeakDict").addEventListener("click", () => {
+      if (state.activeDict?.query) speakText(state.activeDict.query);
+    });
+
+    $("btnSaveWord").addEventListener("click", () => {
+      if (!state.activeDict || state.activeDict.mode !== "word") return;
+      const w = state.activeDict.query.toLowerCase();
+      const exists = state.savedVocab.some((item) => item.word.toLowerCase() === w);
+      if (!exists) {
+        state.savedVocab.unshift({
+          word: state.activeDict.query,
+          meaning: state.activeDict.meaning
+        });
+        renderSavedVocab();
+      }
+      closeDictionary();
+    });
+
+    $("btnClearVocab").addEventListener("click", () => {
+      state.savedVocab = [];
+      renderSavedVocab();
+    });
+
+    $("fileInput").addEventListener("change", (e) => {
+      const f = e.target.files?.[0];
+      if (f) handleFileUpload(f);
+      e.target.value = "";
+    });
+
+    const dropZone = $("dropZone");
+    ["dragenter", "dragover"].forEach((evt) => {
+      dropZone.addEventListener(evt, (e) => {
+        e.preventDefault();
+        dropZone.classList.add("border-teal-600", "bg-teal-100/60");
+      });
+    });
+    ["dragleave", "drop"].forEach((evt) => {
+      dropZone.addEventListener(evt, (e) => {
+        e.preventDefault();
+        dropZone.classList.remove("border-teal-600", "bg-teal-100/60");
+      });
+    });
+    dropZone.addEventListener("drop", (e) => {
+      const f = e.dataTransfer?.files?.[0];
+      if (f) handleFileUpload(f);
+    });
+
+    // 初始化示範內容
+    loadSample();
+    renderSavedVocab();
+  </script>
+</body>
+</html>
