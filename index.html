@@ -1,0 +1,2329 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>優華數位刷題網</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              50: '#f0fdf4',
+              100: '#dcfce7',
+              500: '#10b981',
+              600: '#059669',
+              700: '#047857',
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    body {
+      font-size: 18px !important;
+      line-height: 2 !important;
+    }
+    @media print {
+      .no-print { display: none !important; }
+      .print-only { display: block !important; }
+      body { background: #fff !important; color: #000 !important; }
+      .card-box { border: 1px solid #ccc !important; box-shadow: none !important; margin-bottom: 20px !important; break-inside: avoid; }
+      .page-break { page-break-before: always; }
+    }
+    .lookup-word {
+      border-bottom: 1px dashed #059669;
+      cursor: pointer;
+      color: #047857;
+      font-weight: 600;
+      padding: 0 1px;
+      border-radius: 3px;
+    }
+    .lookup-word:hover {
+      background-color: #dcfce7;
+    }
+    .article-content {
+      white-space: pre-line;
+    }
+  </style>
+</head>
+<body class="bg-slate-50 text-slate-900 min-h-screen flex flex-col font-sans">
+
+  <!-- 登入畫面 (Modal) -->
+  <div id="login-modal" class="fixed inset-0 bg-slate-900/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+    <div class="bg-white rounded-3xl shadow-2xl max-w-md w-full p-8 border border-slate-100">
+      <div class="text-center mb-6">
+        <h2 class="text-3xl font-black text-slate-800">優華數位刷題網</h2>
+        <p class="text-sm text-slate-500 mt-2">請輸入您的 Email 登入系統</p>
+      </div>
+      <form id="login-form" onsubmit="handleLogin(event)" class="space-y-4">
+        <div>
+          <label class="block text-sm font-semibold text-slate-700 mb-1.5 uppercase tracking-wider">電子信箱 (Email)</label>
+          <input type="email" id="login-email" required placeholder="yourname@gmail.com" class="w-full border border-slate-300 rounded-xl p-3.5 text-base focus:ring-2 focus:ring-brand-500 focus:outline-none">
+        </div>
+        <div>
+          <label class="block text-sm font-semibold text-slate-700 mb-1.5 uppercase tracking-wider">通關密碼</label>
+          <input type="password" id="login-pass" required placeholder="請輸入通關密碼" class="w-full border border-slate-300 rounded-xl p-3.5 text-base focus:ring-2 focus:ring-brand-500 focus:outline-none">
+        </div>
+        <div id="login-error-msg" class="hidden text-sm font-semibold text-red-700 bg-red-50 border border-red-200 rounded-xl p-3"></div>
+        <button type="submit" class="w-full bg-brand-600 hover:bg-brand-700 text-white font-bold py-3.5 rounded-xl transition-colors shadow-lg text-base mt-3">
+          立即登入系統
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- 寶物解鎖恭喜彈窗 (Modal) -->
+  <div id="treasure-unlock-modal" class="fixed inset-0 bg-slate-900/75 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden no-print">
+    <div class="bg-white rounded-3xl shadow-2xl max-w-sm w-full p-8 border-4 border-amber-300 text-center space-y-5 relative overflow-hidden">
+      <div class="absolute -top-12 -right-12 w-32 h-32 bg-amber-200/40 rounded-full blur-2xl pointer-events-none"></div>
+      <div class="absolute -bottom-12 -left-12 w-32 h-32 bg-brand-200/40 rounded-full blur-2xl pointer-events-none"></div>
+
+      <div class="space-y-1 relative">
+        <span class="inline-block bg-amber-100 text-amber-800 text-xs font-extrabold px-3 py-1 rounded-full tracking-wider">🎉 累積答對達標獎勵</span>
+        <h3 class="text-2xl font-black text-slate-800 pt-1">恭喜獲得新寶物！</h3>
+      </div>
+
+      <div id="unlocked-treasures-showcase" class="flex flex-wrap justify-center gap-3 py-2 relative"></div>
+
+      <p class="text-sm text-slate-500 relative">已自動收進您的「本月寶物區」，繼續刷題收集全套 12 款吧！</p>
+
+      <button onclick="closeTreasureModal()" class="w-full bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white font-bold py-3.5 rounded-2xl shadow-lg transition-all text-base relative">
+        太棒了，收下寶物！ ✨
+      </button>
+    </div>
+  </div>
+
+  <!-- 頂部導覽列 -->
+  <header class="bg-brand-600 text-white shadow-md no-print">
+    <div class="max-w-5xl mx-auto px-4 py-4 flex flex-wrap justify-between items-center gap-3">
+      <div class="flex items-center gap-3">
+        <span class="text-3xl font-black tracking-wider drop-shadow-sm">優華數位刷題網</span>
+      </div>
+      <div class="flex flex-wrap items-center gap-3 sm:gap-4">
+        <span id="user-status" class="text-sm bg-brand-700 px-3.5 py-1.5 rounded-full font-medium">未登入</span>
+        <button id="nav-home-btn" onclick="switchTab('quiz')" class="text-sm font-bold hover:underline">主頁測驗</button>
+        <a href="exam-7a2.html" target="_blank" rel="noopener noreferrer" class="text-sm font-bold bg-indigo-100 hover:bg-white text-indigo-950 px-3 py-1 rounded-full shadow-sm transition-colors">
+          七上二段刷題
+        </a>
+        <a href="reading-workshop.html" target="_blank" rel="noopener noreferrer" class="text-sm font-bold bg-amber-400 hover:bg-amber-300 text-slate-950 px-3 py-1 rounded-full shadow-sm transition-colors">
+          互動閱讀練習
+        </a>
+        <a href="traditionalchinese.html" target="_blank" rel="noopener noreferrer" class="text-sm font-bold bg-sky-100 hover:bg-white text-sky-950 px-3 py-1 rounded-full shadow-sm transition-colors">
+          文言文加強區
+        </a>
+        <button id="nav-vocab-btn" onclick="switchTab('vocab-bank')" class="text-sm font-bold hover:underline">我的單字庫 <span id="vocab-count-badge" class="bg-amber-400 text-slate-900 px-1.5 py-0.2 rounded-full text-xs">0</span></button>
+        <button onclick="logout()" class="text-sm text-brand-100 hover:text-white underline">登出</button>
+      </div>
+    </div>
+  </header>
+
+  <!-- 主要內容區 -->
+  <main class="max-w-4xl mx-auto px-4 py-8 flex-grow w-full">
+
+    <!-- 管理者介面 (Admin Dashboard) -->
+    <div id="tab-admin" class="hidden space-y-6">
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-6">
+        <div class="bg-white p-7 rounded-3xl shadow-sm border border-slate-200 text-center space-y-3 flex flex-col justify-between">
+          <div class="space-y-3">
+            <div class="text-4xl">📊</div>
+            <h2 class="text-xl font-bold text-slate-800">管理者雲端成績總覽</h2>
+            <p class="text-sm text-slate-500">學生的所有刷題紀錄已自動連結至您的 Google 試算表中的 <strong class="text-brand-700">StudentData</strong> 分頁。</p>
+          </div>
+          <div class="pt-2">
+            <a href="https://docs.google.com/spreadsheets/d/1RkmaR4D_JgSlDirq6ayIKILnbrIKGqLfHasZu0TOdNs/edit?gid=0#gid=0" target="_blank" class="inline-block bg-brand-600 hover:bg-brand-700 text-white font-bold px-5 py-3 rounded-xl shadow transition-colors text-base">
+              📂 直接打開 Google 成績試算表
+            </a>
+          </div>
+        </div>
+
+        <!-- 七上二段刷題區卡片 -->
+        <div class="bg-white p-7 rounded-3xl shadow-sm border-2 border-indigo-300 text-center space-y-3 flex flex-col justify-between">
+          <div class="space-y-3">
+            <div class="text-4xl">🎯</div>
+            <h2 class="text-xl font-bold text-slate-800">國中段考刷題區（七上二段）</h2>
+            <p class="text-sm text-slate-500">收錄七上第二次段考國文 K 版（42 題精選、200 題綜合測驗、200 題成語測驗）與公民 H 版重點及測驗。</p>
+          </div>
+          <div class="pt-2 flex flex-wrap justify-center gap-2">
+            <a href="exam-7a2.html" target="_blank" rel="noopener noreferrer" class="inline-block bg-indigo-600 hover:bg-indigo-700 text-white font-bold px-5 py-3 rounded-xl shadow transition-colors text-base">
+              🎯 前往七上二段刷題區
+            </a>
+          </div>
+        </div>
+
+        <!-- 互動閱讀練習管理介面卡片 -->
+        <div class="bg-white p-7 rounded-3xl shadow-sm border-2 border-amber-300 text-center space-y-3 flex flex-col justify-between">
+          <div class="space-y-3">
+            <div class="text-4xl">📘</div>
+            <h2 class="text-xl font-bold text-slate-800">互動閱讀練習管理介面</h2>
+            <p class="text-sm text-slate-500">上傳 PDF、Word (.docx) 或 JPG/PNG 圖片辨識，快速生成點字句查小字典、上原文下翻譯與自動選擇題練習頁。</p>
+          </div>
+          <div class="pt-2 flex flex-wrap justify-center gap-2">
+            <a href="reading-workshop.html" target="_blank" rel="noopener noreferrer" class="inline-block bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold px-5 py-3 rounded-xl shadow transition-colors text-base">
+              🚀 開啟互動閱讀練習管理介面
+            </a>
+          </div>
+        </div>
+
+        <!-- 文言文加強區卡片 -->
+        <div class="bg-white p-7 rounded-3xl shadow-sm border-2 border-sky-300 text-center space-y-3 flex flex-col justify-between">
+          <div class="space-y-3">
+            <div class="text-4xl">📜</div>
+            <h2 class="text-xl font-bold text-slate-800">文言文加強區</h2>
+            <p class="text-sm text-slate-500">20 篇精選古文與寓言，支援語音朗讀、字詞點擊解釋、段考重點與每篇 5 題閱讀測驗。</p>
+          </div>
+          <div class="pt-2 flex flex-wrap justify-center gap-2">
+            <a href="traditionalchinese.html" target="_blank" rel="noopener noreferrer" class="inline-block bg-sky-600 hover:bg-sky-700 text-white font-bold px-5 py-3 rounded-xl shadow transition-colors text-base">
+              📜 前往文言文加強區
+            </a>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 學生側：錯題本按鈕區 -->
+    <div id="wrong-btn-banner" class="mb-6 no-print">
+      <button onclick="switchTab('wrong-notebook')" class="w-full bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white font-bold py-4 px-6 rounded-2xl shadow-md transition-all flex items-center justify-between text-lg">
+        <div class="flex items-center gap-3">
+          <span class="text-2xl">📚</span>
+          <span>查看我的專屬錯題本與複習講義 (含完整選項與再次練習)</span>
+        </div>
+        <span id="wrong-count-badge" class="bg-red-600 text-white text-sm px-3 py-1 rounded-full shadow hidden">0 題</span>
+      </button>
+    </div>
+
+    <!-- 頁籤一：測驗與出題主頁 -->
+    <div id="tab-quiz" class="space-y-6">
+
+      <!-- [練功日記] 動力面板與自動 Checklist -->
+      <section class="bg-white p-6 rounded-3xl shadow-sm border border-brand-200 no-print space-y-4">
+        <div class="flex justify-between items-center border-b border-slate-100 pb-3">
+          <h3 class="text-lg font-bold text-slate-800 flex items-center gap-2">
+            <span>🔥 [練功日記] 戰力與寶物面板</span>
+          </h3>
+          <span id="diary-month-badge" class="bg-brand-100 text-brand-700 text-sm px-3 py-1 rounded-full font-bold">本月紀錄</span>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div class="bg-slate-50 p-4 rounded-2xl border border-slate-200">
+            <div class="text-xs text-slate-500 font-semibold uppercase">歷史總答對題數 (累積不歸零)</div>
+            <div id="diary-correct-unique" class="text-2xl font-black text-brand-700 mt-1">0 題</div>
+          </div>
+
+          <div class="bg-amber-50 p-4 rounded-2xl border border-amber-200">
+            <div class="text-xs text-amber-700 font-semibold uppercase">目前寶物解鎖進度</div>
+            <div id="diary-level-badge" class="text-xl font-black text-amber-800 mt-1">🎁 累積 0 題</div>
+            <div class="text-[11px] text-amber-600 mt-1 font-medium">累積答對滿 50 題隨機解鎖第一樣寶物（累進解鎖 12 款貓咪與貓用品）</div>
+          </div>
+        </div>
+
+        <!-- 系統自動化記錄 Checklist (每日 00:00 歸零) -->
+        <div class="pt-2">
+          <div class="text-xs font-semibold text-slate-600 mb-2 uppercase tracking-wider">📋 今日練功自動紀錄 (每天 00:00 重置)：</div>
+          <div class="space-y-2 text-sm">
+            <div id="sys-box-1" class="flex items-center gap-3 p-3 rounded-xl bg-slate-50 border border-slate-200 transition-colors">
+              <div id="sys-icon-1" class="w-7 h-7 flex items-center justify-center rounded-lg bg-slate-200 text-slate-500 font-bold text-sm">🐱</div>
+              <span id="sys-text-1" class="font-medium text-slate-500">完成至少 1 次線上刷題或練習 (未完成)</span>
+            </div>
+            <div id="sys-box-2" class="flex items-center gap-3 p-3 rounded-xl bg-slate-50 border border-slate-200 transition-colors">
+              <div id="sys-icon-2" class="w-7 h-7 flex items-center justify-center rounded-lg bg-slate-200 text-slate-500 font-bold text-sm">🐱</div>
+              <span id="sys-text-2" class="font-medium text-slate-500">本月累積答對達 50 題隨機解鎖寶物 (進行中)</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- 本月寶物區與年度榮譽殿堂 -->
+        <div class="pt-4 border-t border-slate-100 space-y-4">
+          <div>
+            <h4 class="text-sm font-bold text-slate-800 mb-2 flex items-center justify-between">
+              <span>🐱 本月寶物區 (每滿 50 題隨機解鎖 1 款，共 12 款)</span>
+              <span id="month-treasure-count" class="text-xs text-brand-600 font-normal">已收集 0 / 12</span>
+            </h4>
+            <div id="month-treasure-grid" class="grid grid-cols-4 sm:grid-cols-6 gap-2"></div>
+          </div>
+
+          <div class="pt-2">
+            <h4 class="text-sm font-bold text-slate-800 mb-2 flex items-center justify-between">
+              <span>🏆 年度榮譽殿堂 (跨月永久收藏)</span>
+              <span id="year-treasure-count" class="text-xs text-amber-600 font-normal">年度總收藏: 0</span>
+            </h4>
+            <div id="year-treasure-grid" class="grid grid-cols-2 sm:grid-cols-3 gap-2"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 條件設定面板 -->
+      <section class="bg-white p-7 rounded-3xl shadow-sm border border-slate-200 no-print">
+        <div class="flex flex-wrap items-center justify-between gap-3 mb-5">
+          <h2 class="text-lg font-bold text-slate-800 border-l-4 border-brand-500 pl-3 flex items-center gap-3">
+            <span>題目選擇與過濾條件</span>
+            <button onclick="loadQuestions()" class="text-sm font-normal text-brand-600 hover:underline">🔄 重新同步 Google Sheet 題庫</button>
+          </h2>
+          <div class="flex flex-wrap items-center gap-2">
+            <a href="exam-7a2.html" target="_blank" rel="noopener noreferrer" class="text-sm font-bold bg-indigo-100 hover:bg-indigo-200 text-indigo-900 border border-indigo-300 px-3.5 py-1.5 rounded-xl transition-colors">
+              🎯 七上二段刷題
+            </a>
+            <a href="reading-workshop.html" target="_blank" rel="noopener noreferrer" class="text-sm font-bold bg-amber-100 hover:bg-amber-200 text-amber-900 border border-amber-300 px-3.5 py-1.5 rounded-xl transition-colors">
+              📘 互動閱讀練習
+            </a>
+            <a href="traditionalchinese.html" target="_blank" rel="noopener noreferrer" class="text-sm font-bold bg-sky-100 hover:bg-sky-200 text-sky-900 border border-sky-300 px-3.5 py-1.5 rounded-xl transition-colors">
+              📜 文言文加強區
+            </a>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-12 gap-6">
+          <div id="subject-filter-container" class="md:col-span-12 border-b border-slate-100 pb-4 hidden">
+            <label class="block text-sm font-semibold text-slate-600 uppercase tracking-wider mb-2.5">1. 選擇科目 (O欄)</label>
+            <div id="subject-radioes" class="flex flex-wrap gap-2.5 text-sm"></div>
+          </div>
+
+          <div class="md:col-span-6 border-r border-slate-100 pr-0 md:pr-4">
+            <label class="block text-sm font-semibold text-slate-600 uppercase tracking-wider mb-2.5"><span id="grade-label-num">2</span>. 選擇年級</label>
+            <div id="grade-radioes" class="grid grid-cols-2 gap-2.5 text-sm">
+              <span class="text-slate-400 text-xs">正在載入年級選項...</span>
+            </div>
+          </div>
+
+          <div class="md:col-span-6 pr-0">
+            <div class="flex items-center justify-between mb-2.5">
+              <label class="block text-sm font-semibold text-slate-600 uppercase tracking-wider"><span id="unit-label-num">3</span>. 學習類別 (可複選多個)</label>
+              <div class="space-x-1">
+                <button type="button" onclick="toggleAllCategories(true)" class="text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 px-2 py-0.5 rounded font-medium transition-colors">全選</button>
+                <button type="button" onclick="toggleAllCategories(false)" class="text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 px-2 py-0.5 rounded font-medium transition-colors">清除</button>
+              </div>
+            </div>
+            <div id="category-checkboxes" class="space-y-2 text-sm max-h-48 overflow-y-auto pr-1">
+              <span class="text-slate-400 text-xs">請先選擇年級</span>
+            </div>
+          </div>
+
+          <div class="md:col-span-12 pt-4 border-t border-slate-100 flex flex-wrap items-center gap-4">
+            <label class="block text-sm font-semibold text-slate-600 uppercase tracking-wider">目標題數 (1 個題組算 1 題，子題依序出題)：</label>
+            <input type="number" id="question-count" value="10" min="1" max="100" class="w-32 border-slate-200 rounded-xl text-base p-2.5 border font-medium">
+            <span class="text-xs text-slate-500">💡 點擊英文單字即可聽發音與查中文，並可加入個人單字庫。</span>
+          </div>
+        </div>
+
+        <div class="mt-6 pt-5 border-t border-slate-100 flex flex-wrap gap-4">
+          <button onclick="startQuiz('online')" class="bg-brand-600 hover:bg-brand-700 text-white text-base font-bold px-6 py-3 rounded-xl shadow-md flex items-center gap-2">
+            🚀 線上練習 (答題即時顯示對錯與解析)
+          </button>
+          <button onclick="startQuiz('print')" class="bg-slate-800 hover:bg-slate-900 text-white text-base font-bold px-6 py-3 rounded-xl shadow-md flex items-center gap-2">
+            🖨️ 生成可列印試卷及答案解析 (列印/Word/JPG)
+          </button>
+          <a href="exam-7a2.html" target="_blank" rel="noopener noreferrer" class="bg-indigo-600 hover:bg-indigo-700 text-white text-base font-bold px-6 py-3 rounded-xl shadow-md flex items-center gap-2">
+            🎯 七上二段刷題
+          </a>
+          <a href="reading-workshop.html" target="_blank" rel="noopener noreferrer" class="bg-amber-500 hover:bg-amber-600 text-slate-950 text-base font-bold px-6 py-3 rounded-xl shadow-md flex items-center gap-2">
+            📘 互動閱讀練習
+          </a>
+          <a href="traditionalchinese.html" target="_blank" rel="noopener noreferrer" class="bg-sky-600 hover:bg-sky-700 text-white text-base font-bold px-6 py-3 rounded-xl shadow-md flex items-center gap-2">
+            📜 文言文加強區
+          </a>
+        </div>
+      </section>
+
+      <!-- 狀態提示 -->
+      <div id="status-msg" class="p-4 rounded-2xl text-base border hidden no-print"></div>
+
+      <!-- 測驗與試卷展示區 -->
+      <section id="quiz-container" class="space-y-5"></section>
+
+      <!-- 線上測驗完成結算提示區 -->
+      <div id="quiz-finish-actions" class="hidden bg-white p-8 rounded-3xl shadow-sm border border-slate-200 text-center space-y-4 no-print">
+        <div class="text-4xl">🎉</div>
+        <h3 class="text-2xl font-bold text-slate-800">本次練習已全部完成！</h3>
+        <div id="quiz-score-summary" class="text-lg font-bold text-brand-700 bg-brand-50 p-4 rounded-2xl border border-brand-200 inline-block"></div>
+        <p class="text-sm text-slate-500">成績與錯題已自動同步上傳至您的雲端成績表格。</p>
+        <div>
+          <button onclick="switchTab('wrong-notebook')" class="bg-amber-500 hover:bg-amber-600 text-white font-bold px-6 py-3 rounded-xl shadow">前往錯題本再次練習 📚</button>
+        </div>
+      </div>
+
+      <!-- 試卷列印與匯出檔案控制按鈕區 -->
+      <div id="print-actions" class="hidden flex flex-wrap gap-3 justify-end no-print">
+        <button onclick="exportToWord('quiz-container', '英文試卷與解答')" class="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-xl text-base font-bold shadow">📄 下載 Word 試卷</button>
+        <button onclick="exportToJPG('quiz-container', '英文試卷與解答')" class="bg-brand-600 hover:bg-brand-700 text-white px-5 py-2.5 rounded-xl text-base font-bold shadow">📷 下載 JPG 試卷</button>
+        <button onclick="window.print()" class="bg-slate-700 hover:bg-slate-800 text-white px-5 py-2.5 rounded-xl text-base font-bold shadow">🖨️ 直接列印</button>
+      </div>
+
+    </div>
+
+    <!-- 頁籤二：錯題本 -->
+    <div id="tab-wrong" class="hidden space-y-5">
+      <div class="bg-white p-7 rounded-3xl shadow-sm border border-slate-200 flex flex-wrap justify-between items-center gap-4 no-print">
+        <div>
+          <h2 class="text-xl font-bold text-slate-800">專屬錯題複習講義</h2>
+          <p class="text-sm text-slate-500 mt-1">自動收集答錯的題目（含完整選項與解析），支援再次練習、下載 Word 與 JPG。</p>
+        </div>
+        <div class="flex flex-wrap gap-2.5">
+          <button onclick="startWrongPractice()" class="bg-brand-600 hover:bg-brand-700 text-white text-sm font-bold px-4 py-2.5 rounded-xl shadow">▶️ 針對錯題再次練習</button>
+          <button onclick="switchTab('quiz')" class="bg-slate-200 hover:bg-slate-300 text-slate-700 text-sm font-bold px-4 py-2.5 rounded-xl">返回主頁測驗</button>
+          <button onclick="exportToWord('wrong-list-container', '英文錯題本講義')" class="bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold px-4 py-2.5 rounded-xl shadow">📄 下載 Word 錯題本</button>
+          <button onclick="exportToJPG('wrong-list-container', '英文錯題本講義')" class="bg-brand-600 hover:bg-brand-700 text-white text-sm font-bold px-4 py-2.5 rounded-xl shadow">📷 匯出錯題本 JPG</button>
+          <button onclick="window.print()" class="bg-slate-700 hover:bg-slate-800 text-white text-sm font-bold px-4 py-2.5 rounded-xl shadow">🖨️ 列印錯題本</button>
+          <button onclick="clearWrongQuestions()" class="bg-red-50 text-red-600 hover:bg-red-100 text-sm font-bold px-4 py-2.5 rounded-xl border border-red-200">清空</button>
+        </div>
+      </div>
+
+      <div id="wrong-list-container" class="space-y-5"></div>
+    </div>
+
+    <!-- 頁籤三：個人單字庫 -->
+    <div id="tab-vocab-bank" class="hidden space-y-5">
+      <div class="bg-white p-7 rounded-3xl shadow-sm border border-slate-200 flex flex-wrap justify-between items-center gap-4 no-print">
+        <div>
+          <h2 class="text-xl font-bold text-slate-800">📖 我的單字庫</h2>
+          <p class="text-sm text-slate-500 mt-1">你在測驗中點擊查詢並加入的生字會儲存於此，可聽發音或刪除。</p>
+        </div>
+        <div>
+          <button onclick="switchTab('quiz')" class="bg-slate-200 hover:bg-slate-300 text-slate-700 text-sm font-bold px-4 py-2.5 rounded-xl">返回主頁測驗</button>
+        </div>
+      </div>
+
+      <div id="vocab-list-container" class="space-y-4"></div>
+    </div>
+
+  </main>
+
+  <!-- 單字即時查詢面板 -->
+  <div id="vocab-card-panel" class="fixed bottom-6 right-6 bg-white rounded-3xl shadow-2xl border-2 border-brand-500 p-6 max-w-sm w-full z-50 hidden space-y-3 no-print">
+    <div class="flex justify-between items-center">
+      <div class="flex items-center gap-2">
+        <span id="panel-word" class="text-2xl font-black text-brand-700">Word</span>
+        <button onclick="speakActiveWord()" class="p-2 bg-brand-100 hover:bg-brand-200 text-brand-700 rounded-full text-xs font-bold transition-colors" title="播放發音">🔊 發音</button>
+      </div>
+      <button onclick="closeVocabPanel()" class="text-slate-400 hover:text-slate-600 font-bold text-base px-2">✕</button>
+    </div>
+    <div class="text-sm text-slate-700 bg-slate-50 p-3 rounded-2xl border border-slate-100">
+      <div class="font-semibold text-slate-500 text-xs mb-1">中文含意：</div>
+      <div id="panel-definition" class="text-slate-900 font-bold text-base">查詢中...</div>
+    </div>
+    <div class="flex gap-2 pt-1">
+      <button onclick="confirmAddVocab()" class="flex-1 bg-brand-600 hover:bg-brand-700 text-white text-xs font-bold py-2.5 rounded-xl shadow transition-colors">⭐ 加入我的單字庫</button>
+      <button onclick="closeVocabPanel()" class="bg-slate-200 hover:bg-slate-300 text-slate-700 text-xs font-bold px-4 py-2.5 rounded-xl transition-colors">關閉</button>
+    </div>
+  </div>
+
+  <script>
+    const SPREADSHEET_ID = '11rFyQ1FLFflBAUzBoJGI2p8EChYSJWuje16DkZZdSWc';
+    const GOOGLE_SHEET_URL = `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/gviz/tq?tqx=out:json`;
+    const GAS_API_URL = 'https://script.google.com/macros/s/AKfycbwL8Gi_79mpUfFf3pNmYuWM3eJTHdJmBC8u10baGLBFJmzIZPetfqHAuZuuMv5FpAbz/exec';
+
+    const TREASURES = [
+      { id: 1, name: "高級貓草罐", icon: "🌿", type: "用品" },
+      { id: 2, name: "肉泥條", icon: "🐟", type: "用品" },
+      { id: 3, name: "逗貓羽毛棒", icon: "🪄", type: "玩具" },
+      { id: 4, name: "貓跳台", icon: "🗼", type: "用品" },
+      { id: 5, name: "三色布朗尼貓", icon: "🐱", type: "貓咪" },
+      { id: 6, name: "橘貓大胖", icon: "🍊", type: "貓咪" },
+      { id: 7, name: "白襪小黑貓", icon: "🐈‍⬛", type: "貓咪" },
+      { id: 8, name: "自動滾球玩具", icon: "🎾", type: "玩具" },
+      { id: 9, name: "溫馨貓窩", icon: "🏠", type: "用品" },
+      { id: 10, name: "布偶三花貓", icon: "🐾", type: "貓咪" },
+      { id: 11, name: "小步舞曲短腿貓", icon: "🐈", type: "貓咪" },
+      { id: 12, name: "金皇冠尊爵貓", icon: "👑", type: "貓咪" }
+    ];
+
+    const QUICK_ZH_DICT = {
+      "abandon": "v. 放棄；遺棄",
+      "ability": "n. 能力；才能",
+      "abroad": "adv. 在國外；到海外",
+      "accept": "v. 接受；承認",
+      "accident": "n. 意外；事故",
+      "achieve": "v. 達成；完成",
+      "advantage": "n. 優點；優勢",
+      "adventure": "n. 冒險；奇遇",
+      "advice": "n. 建議；忠告",
+      "afford": "v. 負擔得起",
+      "afraid": "adj. 害怕的；擔心的",
+      "agree": "v. 同意；贊成",
+      "allow": "v. 允許；准許",
+      "almost": "adv. 幾乎；差不多",
+      "alone": "adj./adv. 獨自的；孤單地",
+      "already": "adv. 已經",
+      "although": "conj. 雖然；儘管",
+      "always": "adv. 總是；永遠",
+      "amazing": "adj. 令人驚奇的",
+      "among": "prep. 在……之中",
+      "ancient": "adj. 古代的；古老的",
+      "announce": "v. 宣布；宣告",
+      "answer": "n./v. 答案；回答",
+      "anxious": "adj. 焦慮的；渴望的",
+      "apologize": "v. 道歉",
+      "appear": "v. 出現；似乎",
+      "appreciate": "v. 感激；欣賞",
+      "arrive": "v. 到達",
+      "article": "n. 文章；物品；冠詞",
+      "attention": "n. 注意；專心",
+      "attitude": "n. 態度；看法",
+      "attract": "v. 吸引",
+      "available": "adj. 可取得的；有空的",
+      "avoid": "v. 避免；避開",
+      "because": "conj. 因為",
+      "become": "v. 變成；成為",
+      "before": "prep./conj./adv. 在……之前",
+      "begin": "v. 開始",
+      "behavior": "n. 行為；舉止",
+      "believe": "v. 相信；認為",
+      "benefit": "n./v. 利益；使受益",
+      "between": "prep. 在（兩者）之間",
+      "borrow": "v. 借入",
+      "brave": "adj. 勇敢的",
+      "break": "v./n. 打破；休息",
+      "bridge": "n. 橋樑",
+      "bright": "adj. 明亮的；聰明的",
+      "bring": "v. 帶來",
+      "build": "v. 建造；建立",
+      "business": "n. 生意；商業；事務",
+      "careful": "adj. 小心的；仔細的",
+      "celebrate": "v. 慶祝",
+      "center": "n. 中心",
+      "certain": "adj. 確定的；某個",
+      "challenge": "n./v. 挑戰",
+      "chance": "n. 機會；可能性",
+      "change": "v./n. 改變；零錢",
+      "character": "n. 性格；角色；字元",
+      "choice": "n. 選擇",
+      "choose": "v. 選擇",
+      "clear": "adj. 清楚的；晴朗的",
+      "collect": "v. 收集",
+      "comfortable": "adj. 舒適的",
+      "common": "adj. 常見的；共同的",
+      "communicate": "v. 溝通；交流",
+      "community": "n. 社區；社群",
+      "compare": "v. 比較",
+      "complete": "adj./v. 完整的；完成",
+      "condition": "n. 狀況；條件",
+      "confident": "adj. 有信心的",
+      "connect": "v. 連接；聯繫",
+      "consider": "v. 考慮；認為",
+      "contain": "v. 包含；容納",
+      "continue": "v. 繼續",
+      "control": "v./n. 控制",
+      "conversation": "n. 對話",
+      "correct": "adj./v. 正確的；改正",
+      "country": "n. 國家；鄉村",
+      "course": "n. 課程；路線",
+      "create": "v. 創造",
+      "culture": "n. 文化",
+      "curious": "adj. 好奇的",
+      "customer": "n. 顧客",
+      "dangerous": "adj. 危險的",
+      "decide": "v. 決定",
+      "decision": "n. 決定",
+      "describe": "v. 描述；形容",
+      "design": "v./n. 設計",
+      "develop": "v. 發展；開發",
+      "different": "adj. 不同的",
+      "difficult": "adj. 困難的",
+      "discover": "v. 發現",
+      "discuss": "v. 討論",
+      "distance": "n. 距離",
+      "during": "prep. 在……期間",
+      "effort": "n. 努力",
+      "encourage": "v. 鼓勵",
+      "energy": "n. 精力；能源",
+      "enjoy": "v. 享受；喜愛",
+      "enough": "adj./adv. 足夠的；足夠地",
+      "environment": "n. 環境",
+      "especially": "adv. 尤其；特別",
+      "event": "n. 事件；活動",
+      "example": "n. 例子",
+      "excited": "adj. 興奮的",
+      "exercise": "n./v. 運動；練習",
+      "expect": "v. 預期；期望",
+      "experience": "n./v. 經驗；經歷",
+      "explain": "v. 解釋；說明",
+      "express": "v./adj. 表達；快速的",
+      "famous": "adj. 著名的",
+      "favorite": "adj./n. 最喜愛的",
+      "feeling": "n. 感覺；感情",
+      "finally": "adv. 最後；終於",
+      "follow": "v. 跟隨；遵循",
+      "foreign": "adj. 外國的",
+      "forget": "v. 忘記",
+      "future": "n./adj. 未來；未來的",
+      "garden": "n. 花園",
+      "gather": "v. 聚集；收集",
+      "general": "adj. 一般的；普遍的",
+      "habit": "n. 習慣",
+      "happen": "v. 發生",
+      "healthy": "adj. 健康的",
+      "helpful": "adj. 有幫助的",
+      "history": "n. 歷史",
+      "holiday": "n. 假期",
+      "honest": "adj. 誠實的",
+      "hospital": "n. 醫院",
+      "however": "adv. 然而；不過",
+      "imagine": "v. 想像",
+      "important": "adj. 重要的",
+      "improve": "v. 改善；進步",
+      "include": "v. 包括；包含",
+      "increase": "v./n. 增加",
+      "information": "n. 資訊；情報",
+      "instead": "adv. 反而；代替",
+      "interest": "n./v. 興趣；使感興趣",
+      "interview": "n./v. 面試；採訪",
+      "introduce": "v. 介紹；引進",
+      "invent": "v. 發明",
+      "invite": "v. 邀請",
+      "island": "n. 島嶼",
+      "journey": "n. 旅程",
+      "knowledge": "n. 知識",
+      "language": "n. 語言",
+      "laugh": "v./n. 笑；笑聲",
+      "learn": "v. 學習；得知",
+      "leave": "v. 離開；留下",
+      "lesson": "n. 課程；教訓",
+      "library": "n. 圖書館",
+      "listen": "v. 聽",
+      "local": "adj. 當地的；局部的",
+      "machine": "n. 機器",
+      "magazine": "n. 雜誌",
+      "manage": "v. 設法做到；管理",
+      "market": "n. 市場",
+      "matter": "n./v. 事情；要緊",
+      "meaning": "n. 意思；含義",
+      "measure": "v./n. 測量；措施",
+      "member": "n. 成員；會員",
+      "mention": "v. 提到；提及",
+      "message": "n. 訊息；留言",
+      "method": "n. 方法",
+      "minute": "n. 分鐘",
+      "mistake": "n./v. 錯誤；誤會",
+      "modern": "adj. 現代的",
+      "moment": "n. 片刻；時刻",
+      "mountain": "n. 山；山脈",
+      "museum": "n. 博物館",
+      "natural": "adj. 自然的",
+      "necessary": "adj. 必要的",
+      "neighbor": "n. 鄰居",
+      "nervous": "adj. 緊張的；焦慮的",
+      "newspaper": "n. 報紙",
+      "notice": "v./n. 注意到；通知",
+      "offer": "v./n. 提供；提議",
+      "office": "n. 辦公室",
+      "often": "adv. 經常",
+      "opinion": "n. 意見；看法",
+      "opportunity": "n. 機會",
+      "order": "n./v. 順序；命令；訂購",
+      "ordinary": "adj. 普通的；平凡的",
+      "organize": "v. 組織；安排",
+      "outside": "adv./prep./adj. 在外面；外面的",
+      "parent": "n. 父或母",
+      "patient": "adj./n. 有耐心的；病人",
+      "pattern": "n. 模式；圖案",
+      "peaceful": "adj. 和平的；安靜的",
+      "people": "n. 人們",
+      "percent": "n. 百分比",
+      "perfect": "adj. 完美的",
+      "perhaps": "adv. 或許；大概",
+      "period": "n. 時期；句號",
+      "person": "n. 人",
+      "picture": "n. 照片；圖畫",
+      "place": "n./v. 地方；放置",
+      "plan": "n./v. 計畫",
+      "plant": "n./v. 植物；種植",
+      "pleasant": "adj. 令人愉快的",
+      "pleasure": "n. 愉快；樂趣",
+      "pocket": "n. 口袋",
+      "polite": "adj. 有禮貌的",
+      "popular": "adj. 受歡迎的",
+      "population": "n. 人口",
+      "possible": "adj. 可能的",
+      "practice": "n./v. 練習",
+      "prepare": "v. 準備",
+      "present": "adj./n./v. 目前的；禮物；呈現",
+      "prevent": "v. 防止；阻止",
+      "price": "n. 價格",
+      "problem": "n. 問題",
+      "process": "n./v. 過程；處理",
+      "produce": "v. 生產；製造",
+      "product": "n. 產品",
+      "program": "n. 節目；計畫；程式",
+      "progress": "n./v. 進步",
+      "project": "n. 計畫；專案",
+      "promise": "v./n. 答應；承諾",
+      "protect": "v. 保護",
+      "proud": "adj. 驕傲的；自豪的",
+      "provide": "v. 提供",
+      "public": "adj./n. 公眾的；大眾",
+      "purpose": "n. 目的",
+      "question": "n./v. 問題；提問",
+      "quickly": "adv. 迅速地",
+      "quiet": "adj. 安靜的",
+      "quite": "adv. 相當；頗",
+      "raise": "v. 舉起；飼養；籌募",
+      "reach": "v. 到達；伸手",
+      "ready": "adj. 準備好的",
+      "realize": "v. 了解；實現",
+      "reason": "n. 理由；原因",
+      "receive": "v. 收到",
+      "recently": "adv. 最近",
+      "record": "n./v. 紀錄；錄音",
+      "reduce": "v. 減少",
+      "refuse": "v. 拒絕",
+      "remember": "v. 記得",
+      "remind": "v. 提醒",
+      "report": "n./v. 報告；報導",
+      "request": "n./v. 請求",
+      "require": "v. 需要；要求",
+      "research": "n./v. 研究",
+      "result": "n./v. 結果；導致",
+      "return": "v./n. 返回；歸還",
+      "review": "v./n. 複習；評論",
+      "right": "adj./adv./n. 正確的；右邊；權利",
+      "schedule": "n./v. 行程表；安排",
+      "science": "n. 科學",
+      "season": "n. 季節",
+      "secret": "n./adj. 秘密；秘密的",
+      "sentence": "n. 句子；判決",
+      "serious": "adj. 嚴重的；認真的",
+      "service": "n. 服務",
+      "several": "adj./pron. 幾個；數個",
+      "share": "v./n. 分享",
+      "should": "aux. 應該",
+      "similar": "adj. 相似的",
+      "simple": "adj. 簡單的",
+      "since": "conj./prep. 自從；既然",
+      "situation": "n. 情況；處境",
+      "skill": "n. 技能；技巧",
+      "society": "n. 社會",
+      "solution": "n. 解決方法",
+      "solve": "v. 解決",
+      "special": "adj. 特殊的",
+      "spend": "v. 花費（時間或金錢）",
+      "spirit": "n. 精神；心靈",
+      "standard": "n./adj. 標準；標準的",
+      "story": "n. 故事",
+      "stranger": "n. 陌生人",
+      "street": "n. 街道",
+      "student": "n. 學生",
+      "subject": "n. 科目；主題",
+      "succeed": "v. 成功",
+      "success": "n. 成功",
+      "suggest": "v. 建議；暗示",
+      "support": "v./n. 支持",
+      "suppose": "v. 假設；料想",
+      "surprise": "n./v. 驚訝",
+      "system": "n. 系統",
+      "teacher": "n. 老師",
+      "technology": "n. 科技",
+      "temperature": "n. 溫度",
+      "themselves": "pron. 他們自己",
+      "thought": "n./v. 想法；思考（過去式）",
+      "through": "prep./adv. 穿過；透過",
+      "together": "adv. 一起",
+      "tomorrow": "n./adv. 明天",
+      "tonight": "adv./n. 今晚",
+      "toward": "prep. 朝向",
+      "tradition": "n. 傳統",
+      "travel": "v./n. 旅行",
+      "trouble": "n./v. 麻煩；困擾",
+      "understand": "v. 了解；明白",
+      "useful": "adj. 有用的",
+      "usually": "adv. 通常",
+      "vacation": "n. 假期",
+      "value": "n./v. 價值；重視",
+      "various": "adj. 各種各樣的",
+      "village": "n. 村莊",
+      "visit": "v./n. 拜訪；參觀",
+      "volunteer": "n./v. 志工；自願",
+      "weather": "n. 天氣",
+      "whether": "conj. 是否",
+      "without": "prep. 沒有",
+      "wonder": "v./n. 想知道；奇蹟",
+      "wonderful": "adj. 精彩的；極好的",
+      "worry": "v./n. 擔心",
+      "writer": "n. 作家"
+    };
+
+    const zhLookupCache = new Map();
+
+    let currentUser = null;
+    let rawQuestions = [];
+    let questionUnits = [];
+    let wrongQuestions = [];
+    let vocabBank = [];
+    let userLogs = [];
+    let activeSelectedWord = '';
+    let activeWordDefinition = '';
+
+    const ADMIN_EMAIL = 'yhstella2@gmail.com';
+    const ADMIN_PASS = 'a18177300';
+    const STUDENT_PASS = '1155665';
+
+    function normalizeInput(val) {
+      return String(val || '')
+        .replace(/[！-～]/g, ch => String.fromCharCode(ch.charCodeAt(0) - 0xfee0))
+        .replace(/ /g, ' ')
+        .trim();
+    }
+
+    function escapeHtmlText(str) {
+      return String(str || '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+    }
+
+    function makeWordsClickable(text) {
+      const raw = String(text || '');
+      if (!raw) return '';
+      return raw.replace(/[A-Za-z][A-Za-z'-]{1,}/g, match => {
+        const cleanWord = match.replace(/^['-]+|['-]+$/g, '');
+        if (!cleanWord) return escapeHtmlText(match);
+        const safeAttr = cleanWord.replace(/'/g, "\\'");
+        return `<span class="lookup-word" onclick="event.stopPropagation(); lookupWord('${safeAttr}')" title="點擊聽發音與查中文">${escapeHtmlText(match)}</span>`;
+      });
+    }
+
+    async function fetchChineseMeaning(word) {
+      const lower = String(word || '').toLowerCase().trim();
+      if (!lower) return '查無中文解釋';
+
+      if (QUICK_ZH_DICT[lower]) {
+        return QUICK_ZH_DICT[lower];
+      }
+      if (zhLookupCache.has(lower)) {
+        return zhLookupCache.get(lower);
+      }
+
+      try {
+        const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=en&tl=zh-TW&dt=t&q=${encodeURIComponent(lower)}`;
+        const res = await fetch(url);
+        if (res.ok) {
+          const data = await res.json();
+          const translated = Array.isArray(data?.[0])
+            ? data[0].map(seg => seg?.[0] || '').join('').trim()
+            : '';
+          if (translated && translated.toLowerCase() !== lower) {
+            zhLookupCache.set(lower, translated);
+            return translated;
+          }
+        }
+      } catch (e) {}
+
+      try {
+        const dictRes = await fetch(`https://api.dictionaryapi.dev/api/v2/entries/en/${encodeURIComponent(lower)}`);
+        if (dictRes.ok) {
+          const dictData = await dictRes.json();
+          const def = dictData?.[0]?.meanings?.[0]?.definitions?.[0]?.definition;
+          if (def) {
+            const result = `(英釋) ${def}`;
+            zhLookupCache.set(lower, result);
+            return result;
+          }
+        }
+      } catch (e) {}
+
+      const fallback = '待補充中文（已播放發音，可按下方按鈕加入單字庫）';
+      zhLookupCache.set(lower, fallback);
+      return fallback;
+    }
+
+    function speakWord(word) {
+      const target = String(word || '').trim();
+      if (!target || !('speechSynthesis' in window)) return;
+      try {
+        window.speechSynthesis.cancel();
+        const utterance = new SpeechSynthesisUtterance(target);
+        utterance.lang = 'en-US';
+        utterance.rate = 0.95;
+        window.speechSynthesis.speak(utterance);
+      } catch (e) {
+        console.log('發音播放失敗:', e);
+      }
+    }
+
+    async function lookupWord(word) {
+      const cleanWord = String(word || '').trim();
+      if (!cleanWord) return;
+
+      activeSelectedWord = cleanWord;
+      activeWordDefinition = '查詢中...';
+
+      document.getElementById('panel-word').innerText = cleanWord;
+      document.getElementById('panel-definition').innerText = '查詢中文中...';
+      document.getElementById('vocab-card-panel').classList.remove('hidden');
+
+      speakWord(cleanWord);
+
+      const meaning = await fetchChineseMeaning(cleanWord);
+      if (activeSelectedWord === cleanWord) {
+        activeWordDefinition = meaning;
+        document.getElementById('panel-definition').innerText = meaning;
+      }
+    }
+
+    function showLoginError(msg) {
+      const box = document.getElementById('login-error-msg');
+      if (box) {
+        box.textContent = msg;
+        box.classList.remove('hidden');
+      } else {
+        alert(msg);
+      }
+    }
+
+    function clearLoginError() {
+      const box = document.getElementById('login-error-msg');
+      if (box) {
+        box.textContent = '';
+        box.classList.add('hidden');
+      }
+    }
+
+    function getDefaultTreasuresState() {
+      const now = new Date();
+      return {
+        yearMonth: `${now.getFullYear()}-${now.getMonth() + 1}`,
+        unlockedList: [],
+        yearlyTrophies: []
+      };
+    }
+
+    function saveTreasuresStateLocal(state) {
+      if (!currentUser || !currentUser.email) return;
+      localStorage.setItem('yh_treasures_' + currentUser.email.toLowerCase(), JSON.stringify(state));
+    }
+
+    window.onload = () => {
+      const savedUser = localStorage.getItem('yh_user_v16');
+      if (savedUser) {
+        try {
+          currentUser = JSON.parse(savedUser);
+          if (currentUser && currentUser.email) {
+            const modal = document.getElementById('login-modal');
+            modal.classList.add('hidden');
+            modal.style.display = 'none';
+            document.getElementById('user-status').innerText = `👤 ${currentUser.email}`;
+
+            if (currentUser.email.toLowerCase() === ADMIN_EMAIL) {
+              setupAdminView();
+            } else {
+              loadUserData();
+              renderDiaryStats(true);
+              loadQuestions();
+            }
+          }
+        } catch (e) {
+          localStorage.removeItem('yh_user_v16');
+        }
+      }
+    };
+
+    function setupAdminView() {
+      document.getElementById('tab-admin').classList.remove('hidden');
+      document.getElementById('tab-quiz').classList.add('hidden');
+      document.getElementById('wrong-btn-banner').classList.add('hidden');
+      document.getElementById('nav-vocab-btn').classList.add('hidden');
+      document.getElementById('nav-home-btn').innerText = '管理者後台';
+    }
+
+    async function loadUserData() {
+      if (!currentUser) return;
+      const emailKey = currentUser.email.toLowerCase();
+
+      userLogs = [];
+      wrongQuestions = [];
+      vocabBank = [];
+      updateWrongBadge();
+      updateVocabBadge();
+      renderDiaryStats(true);
+
+      try {
+        showStatus('正在從雲端同步您的跨裝置學習紀錄...', 'info');
+        const res = await fetch(`${GAS_API_URL}?email=${encodeURIComponent(emailKey)}&_t=${Date.now()}`, {
+          cache: 'no-store'
+        });
+        const cloudData = await res.json();
+
+        if (cloudData && cloudData.status === 'success') {
+          userLogs = Array.isArray(cloudData.logs) ? cloudData.logs : [];
+          wrongQuestions = Array.isArray(cloudData.wrongs) ? cloudData.wrongs : [];
+          vocabBank = Array.isArray(cloudData.vocab) ? cloudData.vocab : [];
+
+          if (cloudData.treasuresState && typeof cloudData.treasuresState === 'object') {
+            saveTreasuresStateLocal(Object.assign(getDefaultTreasuresState(), cloudData.treasuresState));
+          } else {
+            saveTreasuresStateLocal(getDefaultTreasuresState());
+          }
+
+          localStorage.setItem('yh_student_' + emailKey, JSON.stringify({
+            logs: userLogs,
+            wrongs: wrongQuestions,
+            vocab: vocabBank
+          }));
+
+          updateWrongBadge();
+          updateVocabBadge();
+          renderDiaryStats(true);
+          showStatus('已完全以雲端成績表同步最新紀錄！', 'success');
+        }
+      } catch (err) {
+        console.log('雲端讀取失敗:', err);
+        showStatus('目前無法連線雲端成績表，請稍後重新整理再試。', 'error');
+      }
+    }
+
+    function saveUserDataToLocal(syncToCloud = true) {
+      if (!currentUser || currentUser.email.toLowerCase() === ADMIN_EMAIL) return;
+      const emailKey = currentUser.email.toLowerCase();
+      const data = {
+        logs: userLogs,
+        wrongs: wrongQuestions,
+        vocab: vocabBank
+      };
+      localStorage.setItem('yh_student_' + emailKey, JSON.stringify(data));
+      updateWrongBadge();
+      updateVocabBadge();
+
+      if (syncToCloud) {
+        fetch(GAS_API_URL, {
+          method: 'POST',
+          mode: 'no-cors',
+          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+          body: JSON.stringify({
+            action: 'syncState',
+            email: emailKey,
+            logs: userLogs,
+            wrongItems: wrongQuestions,
+            vocabBank: vocabBank,
+            treasuresState: JSON.parse(localStorage.getItem('yh_treasures_' + emailKey) || 'null')
+          })
+        }).catch(err => console.log('Sync state error:', err));
+      }
+    }
+
+    function formatWrongItemsForSheet(items) {
+      if (!Array.isArray(items) || items.length === 0) return '無錯題';
+      return items.map((item, idx) => {
+        const qNum = item.number || (idx + 1);
+        const qText = String(item.questionText || item.question || item.text || '').trim() || '(題目文字未取得)';
+        const qLine = /^\d+[\.、\s]/.test(qText) ? qText : `${qNum}. ${qText}`;
+        const opts = item.opts || item.options || {};
+        const optParts = ['A', 'B', 'C', 'D']
+          .filter(k => opts[k] !== undefined && opts[k] !== null && String(opts[k]).trim() !== '')
+          .map(k => `(${k}) ${String(opts[k]).trim()}`);
+        const optLine = optParts.length > 0 ? optParts.join('  ') : '(選項未取得)';
+        const userAns = String(item.userAnswer || item.selected || '').trim().toUpperCase();
+        const correctAns = String(item.answer || item.correctAnswer || '').trim().toUpperCase();
+        return [
+          qLine,
+          optLine,
+          `↳ 學生選錯: (${userAns || '?'}) | 正確答案: (${correctAns || '?'})`
+        ].join('\n');
+      }).join('\n\n--------------------\n\n');
+    }
+
+    function recordQuizSession(totalCount, correctCount, wrongCount, rangeText, sessionWrongItems = [], attemptedIds = [], correctIds = []) {
+      if (!currentUser || currentUser.email.toLowerCase() === ADMIN_EMAIL) return;
+
+      const now = new Date();
+      const yStr = now.getFullYear();
+      const mStr = String(now.getMonth() + 1).padStart(2, '0');
+      const dStr = String(now.getDate()).padStart(2, '0');
+      const dateKey = `${yStr}/${mStr}/${dStr}`;
+      const timeStr = now.toLocaleTimeString('zh-TW', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
+
+      const sessionData = {
+        id: 'log_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4),
+        date: dateKey,
+        timestamp: `${dateKey} ${timeStr}`,
+        timeOnly: timeStr,
+        total: totalCount,
+        correct: correctCount,
+        wrong: wrongCount,
+        range: rangeText,
+        wrongItems: sessionWrongItems,
+        attemptedItems: attemptedIds,
+        correctItems: correctIds
+      };
+
+      userLogs.push(sessionData);
+      saveUserDataToLocal(false);
+      renderDiaryStats(false);
+
+      const syncPayload = {
+        id: sessionData.id,
+        action: 'recordQuiz',
+        email: currentUser.email.toLowerCase(),
+        timestamp: sessionData.timestamp,
+        quizTime: sessionData.timestamp,
+        total: totalCount,
+        totalCount: totalCount,
+        correct: correctCount,
+        wrong: wrongCount,
+        wrongCount: wrongCount,
+        range: rangeText,
+        gradeCategory: rangeText,
+        wrongItems: sessionWrongItems,
+        attemptedItems: attemptedIds,
+        correctItems: correctIds,
+        wrongContent: formatWrongItemsForSheet(sessionWrongItems),
+        treasuresState: JSON.parse(localStorage.getItem('yh_treasures_' + currentUser.email.toLowerCase()) || 'null')
+      };
+
+      fetch(GAS_API_URL, {
+        method: 'POST',
+        mode: 'no-cors',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify(syncPayload)
+      })
+      .then(() => {
+        showStatus(`已同步成績至 Google Sheet（${currentUser.email}｜${rangeText}｜錯 ${wrongCount} 題）`, 'success');
+      })
+      .catch(err => {
+        console.log('Cloud sync error:', err);
+        showStatus('成績已存於本機，但雲端同步時發生網路錯誤，請稍後再試。', 'error');
+      });
+
+      return sessionData;
+    }
+
+    function renderDiaryStats(silentUnlockModal = false) {
+      if (!currentUser || !currentUser.email) return;
+
+      const now = new Date();
+      const currentYear = now.getFullYear();
+      const currentMonth = now.getMonth() + 1;
+      const todayFull = `${currentYear}/${String(currentMonth).padStart(2, '0')}/${String(now.getDate()).padStart(2, '0')}`;
+      const todayShort = `${String(currentMonth).padStart(2, '0')}/${String(now.getDate()).padStart(2, '0')}`;
+
+      document.getElementById('diary-month-badge').innerText = `本月 (${currentYear}年${currentMonth}月)`;
+
+      let totalCorrectCount = 0;
+      let monthCorrectCount = 0;
+      let hasPracticedToday = false;
+
+      const rawT = localStorage.getItem('yh_treasures_' + currentUser.email.toLowerCase());
+      let savedTreasuresState = rawT ? Object.assign(getDefaultTreasuresState(), JSON.parse(rawT)) : getDefaultTreasuresState();
+
+      if (savedTreasuresState.yearMonth !== `${currentYear}-${currentMonth}`) {
+        if (savedTreasuresState.unlockedList && savedTreasuresState.unlockedList.length > 0) {
+          if (!savedTreasuresState.yearlyTrophies) savedTreasuresState.yearlyTrophies = [];
+          savedTreasuresState.yearlyTrophies.push({
+            title: `${savedTreasuresState.yearMonth} 榮譽收藏`,
+            items: [...savedTreasuresState.unlockedList]
+          });
+        }
+        savedTreasuresState = {
+          yearMonth: `${currentYear}-${currentMonth}`,
+          unlockedList: [],
+          yearlyTrophies: savedTreasuresState.yearlyTrophies || []
+        };
+      }
+
+      userLogs.forEach(log => {
+        const ts = String(log.timestamp || '').trim();
+        const datePart = ts.split(' ')[0];
+        if (datePart === todayFull || datePart === todayShort) {
+          hasPracticedToday = true;
+        }
+
+        const isCurrentMonthLog = ts.startsWith(`${currentYear}/${String(currentMonth).padStart(2, '0')}`) ||
+                                   ts.startsWith(`${String(currentMonth).padStart(2, '0')}/`);
+
+        const logCorrectNum = (Array.isArray(log.correctItems) && log.correctItems.length > 0)
+          ? log.correctItems.length
+          : (Number(log.correct) || 0);
+
+        totalCorrectCount += logCorrectNum;
+        if (isCurrentMonthLog) {
+          monthCorrectCount += logCorrectNum;
+        }
+      });
+
+      document.getElementById('diary-correct-unique').innerText = `${totalCorrectCount} 題`;
+
+      const targetUnlockedCount = Math.min(Math.floor(monthCorrectCount / 50), 12);
+      document.getElementById('diary-level-badge').innerText = `🎁 本月累積答對 ${monthCorrectCount} 題`;
+
+      if (!savedTreasuresState.unlockedList) savedTreasuresState.unlockedList = [];
+      let newlyUnlocked = [];
+
+      while (savedTreasuresState.unlockedList.length < targetUnlockedCount && savedTreasuresState.unlockedList.length < TREASURES.length) {
+        const availableTreasures = TREASURES.filter(t => !savedTreasuresState.unlockedList.some(u => u.id === t.id));
+        if (availableTreasures.length > 0) {
+          const randomIdx = Math.floor(Math.random() * availableTreasures.length);
+          const picked = availableTreasures[randomIdx];
+          savedTreasuresState.unlockedList.push(picked);
+          newlyUnlocked.push(picked);
+        } else {
+          break;
+        }
+      }
+
+      saveTreasuresStateLocal(savedTreasuresState);
+
+      if (newlyUnlocked.length > 0 && !silentUnlockModal) {
+        showTreasureUnlockModal(newlyUnlocked);
+      }
+
+      const box1 = document.getElementById('sys-box-1');
+      const icon1 = document.getElementById('sys-icon-1');
+      const t1 = document.getElementById('sys-text-1');
+      if (hasPracticedToday) {
+        box1.className = "flex items-center gap-3 p-3 rounded-xl bg-pink-50 border border-pink-200 transition-colors";
+        icon1.className = "w-7 h-7 flex items-center justify-center rounded-lg bg-pink-200 text-pink-700 font-bold text-sm shadow-sm";
+        icon1.innerText = "🐱✅";
+        t1.className = "font-medium text-pink-700";
+        t1.innerText = `今日 (${todayShort}) 已完成線上刷題練習 (已達成 ✅，明天自動重置)`;
+      } else {
+        box1.className = "flex items-center gap-3 p-3 rounded-xl bg-slate-50 border border-slate-200 transition-colors";
+        icon1.className = "w-7 h-7 flex items-center justify-center rounded-lg bg-slate-200 text-slate-500 font-bold text-sm";
+        icon1.innerText = "🐱";
+        t1.className = "font-medium text-slate-500";
+        t1.innerText = `今日 (${todayShort}) 完成至少 1 次線上刷題或練習 (尚未完成)`;
+      }
+
+      const box2 = document.getElementById('sys-box-2');
+      const icon2 = document.getElementById('sys-icon-2');
+      const t2 = document.getElementById('sys-text-2');
+      const nextTarget = (targetUnlockedCount < 12) ? (targetUnlockedCount + 1) * 50 : 600;
+
+      if (targetUnlockedCount > 0) {
+        box2.className = "flex items-center gap-3 p-3 rounded-xl bg-pink-50 border border-pink-200 transition-colors";
+        icon2.className = "w-7 h-7 flex items-center justify-center rounded-lg bg-pink-200 text-pink-700 font-bold text-sm shadow-sm";
+        icon2.innerText = "🐱✅";
+        t2.className = "font-medium text-pink-700";
+        t2.innerText = `本月已成功解鎖 ${targetUnlockedCount} 款隨機寶物！(距離下一款還需答對 ${nextTarget - monthCorrectCount} 題)`;
+      } else {
+        box2.className = "flex items-center gap-3 p-3 rounded-xl bg-slate-50 border border-slate-200 transition-colors";
+        icon2.className = "w-7 h-7 flex items-center justify-center rounded-lg bg-slate-200 text-slate-500 font-bold text-sm";
+        icon2.innerText = "🐱";
+        t2.className = "font-medium text-slate-500";
+        t2.innerText = `本月已答對 ${monthCorrectCount} 題 / 滿 50 題隨機解鎖第一款寶物 (還差 ${50 - (monthCorrectCount % 50)} 題)`;
+      }
+
+      renderTreasuresUI(savedTreasuresState);
+    }
+
+    function showTreasureUnlockModal(newItems) {
+      const showcase = document.getElementById('unlocked-treasures-showcase');
+      showcase.innerHTML = '';
+
+      newItems.forEach(item => {
+        showcase.innerHTML += `
+          <div class="bg-gradient-to-b from-amber-50 to-amber-100 border-2 border-amber-300 rounded-2xl p-5 flex flex-col items-center justify-center shadow-md min-w-[140px] transform transition-transform hover:scale-105">
+            <div class="text-6xl mb-2 animate-bounce">${item.icon}</div>
+            <div class="text-lg font-black text-amber-900">${item.name}</div>
+            <span class="text-xs font-bold text-amber-700 bg-amber-200/70 px-2.5 py-0.5 rounded-full mt-1">${item.type}</span>
+          </div>
+        `;
+      });
+
+      document.getElementById('treasure-unlock-modal').classList.remove('hidden');
+    }
+
+    function closeTreasureModal() {
+      document.getElementById('treasure-unlock-modal').classList.add('hidden');
+    }
+
+    function renderTreasuresUI(state) {
+      const monthGrid = document.getElementById('month-treasure-grid');
+      const yearGrid = document.getElementById('year-treasure-grid');
+      monthGrid.innerHTML = '';
+      yearGrid.innerHTML = '';
+
+      const unlockedIds = new Set((state.unlockedList || []).map(item => item.id));
+      document.getElementById('month-treasure-count').innerText = `已收集 ${unlockedIds.size} / 12`;
+
+      TREASURES.forEach(t => {
+        const unlockedItem = (state.unlockedList || []).find(item => item.id === t.id);
+        const isUnlocked = !!unlockedItem;
+        monthGrid.innerHTML += `
+          <div class="p-2.5 rounded-2xl border text-center flex flex-col items-center justify-center ${isUnlocked ? 'bg-amber-50 border-amber-300 shadow-sm' : 'bg-slate-100 border-slate-200 opacity-40 grayscale'}">
+            <span class="text-2xl">${t.icon}</span>
+            <span class="text-[10px] font-bold text-slate-700 mt-1 truncate w-full">${t.name}</span>
+            <span class="text-[9px] ${isUnlocked ? 'text-amber-600 font-bold' : 'text-slate-400'}">${isUnlocked ? '已獲得' : '未解鎖'}</span>
+          </div>
+        `;
+      });
+
+      const trophies = state.yearlyTrophies || [];
+      document.getElementById('year-treasure-count').innerText = `年度總收藏: ${trophies.reduce((acc, t) => acc + t.items.length, 0)} 件寶物`;
+
+      if (trophies.length === 0) {
+        yearGrid.innerHTML = `<div class="col-span-full text-xs text-slate-400 text-center py-2">跨月結算後的寶物將自動永久存入年度榮譽殿堂！</div>`;
+      } else {
+        trophies.forEach(trophy => {
+          let itemsHtml = trophy.items.map(item => `<span class="text-xl" title="${item.name}">${item.icon}</span>`).join(' ');
+          yearGrid.innerHTML += `
+            <div class="p-3 rounded-2xl border bg-gradient-to-br from-amber-100 to-amber-200 border-amber-400 shadow-sm space-y-1 col-span-1">
+              <div class="text-[11px] font-bold text-amber-900">${trophy.title}</div>
+              <div class="flex flex-wrap gap-1.5 items-center justify-center pt-1">${itemsHtml}</div>
+            </div>
+          `;
+        });
+      }
+    }
+
+    function exportToWord(elementId, fileNamePrefix) {
+      const element = document.getElementById(elementId);
+      if (!element || element.innerHTML.trim() === '') {
+        alert('目前沒有內容可以下載！');
+        return;
+      }
+
+      showStatus('正在產生 Word 檔案...', 'info');
+
+      try {
+        const clone = element.cloneNode(true);
+        const noPrintEls = clone.querySelectorAll('.no-print');
+        noPrintEls.forEach(el => el.remove());
+
+        const htmlContent = `
+          <html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40">
+          <head>
+            <meta charset="utf-8">
+            <title>${fileNamePrefix}</title>
+            <style>
+              body { font-family: 'DFKai-SB', 'BiauKai', 'Microsoft JhengHei', sans-serif; font-size: 16pt; line-height: 1.8; color: #000000; }
+              div { margin-bottom: 12px; }
+            </style>
+          </head>
+          <body>
+            ${clone.innerHTML}
+          </body>
+          </html>
+        `;
+
+        const blob = new Blob(['\ufeff' + htmlContent], {
+          type: 'application/msword'
+        });
+
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        const now = new Date();
+        const dateStr = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}`;
+
+        link.href = url;
+        link.download = `${fileNamePrefix}_${dateStr}.doc`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+
+        showStatus('Word 檔案已成功下載！', 'success');
+      } catch (err) {
+        console.error('Word 匯出失敗:', err);
+        alert('Word 檔案產生失敗，請稍後再試。');
+      }
+    }
+
+    async function exportToJPG(elementId, fileNamePrefix) {
+      const element = document.getElementById(elementId);
+      if (!element || element.innerHTML.trim() === '') {
+        alert('目前沒有內容可以匯出成圖片！');
+        return;
+      }
+
+      showStatus('正在產生高畫質 JPG 圖片，請稍候...', 'info');
+
+      try {
+        const noPrintEls = element.querySelectorAll('.no-print');
+        noPrintEls.forEach(el => el.style.display = 'none');
+
+        const canvas = await html2canvas(element, {
+          scale: 2,
+          useCORS: true,
+          backgroundColor: '#ffffff',
+          logging: false
+        });
+
+        noPrintEls.forEach(el => el.style.display = '');
+
+        const imgData = canvas.toDataURL('image/jpeg', 0.92);
+        const link = document.createElement('a');
+        const now = new Date();
+        const dateStr = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}`;
+
+        link.download = `${fileNamePrefix}_${dateStr}.jpg`;
+        link.href = imgData;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+
+        showStatus('JPG 圖片已成功下載！', 'success');
+      } catch (err) {
+        console.error('JPG 匯出失敗:', err);
+        alert('圖片產生失敗，請稍後再試或改用列印功能。');
+      }
+    }
+
+    function handleLogin(e) {
+      if (e && typeof e.preventDefault === 'function') e.preventDefault();
+      clearLoginError();
+
+      const email = normalizeInput(document.getElementById('login-email').value).toLowerCase();
+      const rawPass = normalizeInput(document.getElementById('login-pass').value);
+      const compactPass = rawPass.replace(/\s+/g, '');
+
+      if (!email) {
+        showLoginError('請輸入 Email 帳號');
+        return;
+      }
+
+      if (!compactPass) {
+        showLoginError('請輸入通關密碼');
+        return;
+      }
+
+      if (email === ADMIN_EMAIL) {
+        if (rawPass !== ADMIN_PASS && compactPass !== ADMIN_PASS) {
+          showLoginError('管理者通關密碼錯誤！');
+          return;
+        }
+      } else {
+        const isStudentMatch = (rawPass === STUDENT_PASS || compactPass === STUDENT_PASS);
+        const isAdminMatch = (rawPass === ADMIN_PASS || compactPass === ADMIN_PASS);
+        if (!isStudentMatch && !isAdminMatch) {
+          showLoginError('通關密碼錯誤，請輸入正確通關密碼！');
+          return;
+        }
+      }
+
+      currentUser = { email: email };
+      try {
+        localStorage.setItem('yh_user_v16', JSON.stringify(currentUser));
+      } catch (err) {
+        console.log('localStorage 寫入受限:', err);
+      }
+
+      const modal = document.getElementById('login-modal');
+      modal.classList.add('hidden');
+      modal.style.display = 'none';
+      document.getElementById('user-status').innerText = `👤 ${email}`;
+
+      if (email === ADMIN_EMAIL) {
+        setupAdminView();
+      } else {
+        loadUserData();
+        renderDiaryStats(true);
+        loadQuestions();
+      }
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+      const form = document.getElementById('login-form');
+      if (form) {
+        form.addEventListener('submit', handleLogin);
+      }
+    });
+
+    function logout() {
+      localStorage.removeItem('yh_user_v16');
+      location.reload();
+    }
+
+    function isPassageRow(q) {
+      const text = String(q?.questionText || '').trim();
+      const hasBlankPattern = /_{2,}\s*\d+\s*_{2,}|【\s*\d+\s*】|\(\s*\d+\s*\)\s*_{2,}/.test(text);
+      const hasSubBlankPrompt = /第\s*\(?\d+\)?\s*[格題]/.test(text);
+      const hasOptions = ['A', 'B', 'C', 'D'].some(k => q?.opts && String(q.opts[k] || '').trim() !== '');
+      if (hasSubBlankPrompt) return false;
+      if (hasBlankPattern) return true;
+      if (!hasOptions && text.length >= 40) return true;
+      return false;
+    }
+
+    function extractSubQuestionNumber(q, fallbackOrder = Number.MAX_SAFE_INTEGER) {
+      const text = String(q?.questionText || '').trim();
+      const id = String(q?.id || '').trim();
+
+      const blankMatch = text.match(/第\s*[\(\[（【]?\s*(\d+)\s*[\)\]）】]?\s*[格題]/);
+      if (blankMatch) return parseInt(blankMatch[1], 10);
+
+      const idDashMatch = id.match(/^.+?[-_](\d+)$/);
+      if (idDashMatch) return parseInt(idDashMatch[1], 10);
+
+      const leadNumMatch = text.match(/^\s*[\(\[（【]?\s*(\d+)\s*[\)\]）】\.、\s]/);
+      if (leadNumMatch) return parseInt(leadNumMatch[1], 10);
+
+      return fallbackOrder;
+    }
+
+    function compareSubQuestionOrder(a, b) {
+      const numA = extractSubQuestionNumber(a.question, Number.isFinite(a.subOrder) ? a.subOrder : Number.MAX_SAFE_INTEGER);
+      const numB = extractSubQuestionNumber(b.question, Number.isFinite(b.subOrder) ? b.subOrder : Number.MAX_SAFE_INTEGER);
+      if (numA !== numB) return numA - numB;
+      return (a.rowIndex ?? 0) - (b.rowIndex ?? 0);
+    }
+
+    function detectGroupKind(q, firstSub, unitText) {
+      const combined = `${unitText || ''} ${q?.unit || ''} ${firstSub?.unit || ''} ${q?.questionText || ''}`;
+      if (/克漏字|cloze|格/i.test(combined)) {
+        return 'cloze_group';
+      }
+      return 'reading_group';
+    }
+
+    function buildQuestionUnits(questions) {
+      const passageById = new Map();
+      const childrenByParentId = new Map();
+      const consumedIds = new Set();
+      const units = [];
+
+      questions.forEach((q, rowIndex) => {
+        const cleanId = String(q.id || '').trim();
+        const dashMatch = cleanId.match(/^(.+?)[-_](\d+)$/);
+        if (dashMatch) {
+          const parentId = dashMatch[1].trim();
+          const subOrder = parseInt(dashMatch[2], 10) || 0;
+          if (!childrenByParentId.has(parentId)) {
+            childrenByParentId.set(parentId, []);
+          }
+          childrenByParentId.get(parentId).push({
+            question: q,
+            subOrder: subOrder,
+            rowIndex: rowIndex
+          });
+        } else {
+          passageById.set(cleanId, { q, rowIndex });
+        }
+      });
+
+      const parentIdsWithDash = new Set(childrenByParentId.keys());
+
+      let i = 0;
+      while (i < questions.length) {
+        const q = questions[i];
+        const cleanId = String(q.id || '').trim();
+        if (consumedIds.has(cleanId) && !parentIdsWithDash.has(cleanId)) {
+          i++;
+          continue;
+        }
+
+        if (parentIdsWithDash.has(cleanId)) {
+          const childEntries = childrenByParentId.get(cleanId) || [];
+          childEntries.sort(compareSubQuestionOrder);
+          const subQuestions = childEntries.map(entry => {
+            consumedIds.add(String(entry.question.id || '').trim());
+            return entry.question;
+          });
+          consumedIds.add(cleanId);
+
+          const firstSub = subQuestions[0] || {};
+          const groupKind = detectGroupKind(q, firstSub, q.unit || firstSub.unit || '');
+          units.push({
+            unitType: groupKind,
+            unitCount: 1,
+            id: cleanId,
+            subject: q.subject || firstSub.subject || '',
+            grade: q.grade || firstSub.grade || '',
+            unit: q.unit || firstSub.unit || '',
+            passage: q,
+            subQuestions: subQuestions
+          });
+          i++;
+          continue;
+        }
+
+        if (isPassageRow(q)) {
+          const groupSubs = [];
+          let j = i + 1;
+          while (j < questions.length) {
+            const candidate = questions[j];
+            const candId = String(candidate.id || '').trim();
+            if (consumedIds.has(candId)) {
+              j++;
+              continue;
+            }
+            if (isPassageRow(candidate) || parentIdsWithDash.has(candId)) {
+              break;
+            }
+            const sameGrade = !q.grade || !candidate.grade || candidate.grade === q.grade;
+            const sameUnit = !q.unit || !candidate.unit || candidate.unit === q.unit;
+            const isSubBlankQ = /第\s*[\(\[（【]?\s*\d+\s*[\)\]）】]?\s*[格題]/.test(String(candidate.questionText || ''));
+
+            if (sameGrade && sameUnit && (isSubBlankQ || groupSubs.length < 20)) {
+              groupSubs.push({
+                question: candidate,
+                subOrder: extractSubQuestionNumber(candidate, groupSubs.length + 1),
+                rowIndex: j
+              });
+              consumedIds.add(candId);
+              j++;
+            } else {
+              break;
+            }
+          }
+
+          consumedIds.add(cleanId);
+          groupSubs.sort(compareSubQuestionOrder);
+          const orderedSubQuestions = groupSubs.map(entry => entry.question);
+          const firstSub = orderedSubQuestions[0] || {};
+          const groupKind = detectGroupKind(q, firstSub, q.unit || firstSub.unit || '');
+
+          units.push({
+            unitType: groupKind,
+            unitCount: 1,
+            id: cleanId,
+            subject: q.subject || firstSub.subject || '',
+            grade: q.grade || firstSub.grade || '',
+            unit: q.unit || firstSub.unit || '',
+            passage: q,
+            subQuestions: orderedSubQuestions
+          });
+
+          i = j;
+          continue;
+        }
+
+        consumedIds.add(cleanId);
+        units.push({
+          unitType: 'single',
+          unitCount: 1,
+          id: cleanId,
+          subject: q.subject || '',
+          grade: q.grade || '',
+          unit: q.unit || '',
+          question: q
+        });
+        i++;
+      }
+
+      childrenByParentId.forEach((childrenList, parentId) => {
+        if (!passageById.has(parentId)) {
+          childrenList.sort(compareSubQuestionOrder);
+          const orphanSubs = childrenList
+            .map(entry => entry.question)
+            .filter(sq => !consumedIds.has(String(sq.id || '').trim()));
+
+          if (orphanSubs.length > 0) {
+            const firstSub = orphanSubs[0];
+            const groupKind = detectGroupKind(firstSub, firstSub, firstSub.unit || '');
+            units.push({
+              unitType: groupKind,
+              unitCount: 1,
+              id: parentId,
+              subject: firstSub.subject || '',
+              grade: firstSub.grade || '',
+              unit: firstSub.unit || '',
+              passage: {
+                id: parentId,
+                subject: firstSub.subject || '',
+                grade: firstSub.grade || '',
+                unit: firstSub.unit || '',
+                questionText: `${groupKind === 'cloze_group' ? '克漏字題組' : '閱讀題組'} #${parentId}`
+              },
+              subQuestions: orphanSubs
+            });
+          }
+        }
+      });
+
+      return units;
+    }
+
+    function sumUnitCount(units) {
+      return (units || []).reduce((sum, item) => sum + (Number(item.unitCount) || 1), 0);
+    }
+
+    async function loadQuestions() {
+      showStatus('連線至 Google Sheet 載入題庫中...', 'info');
+      try {
+        const res = await fetch(GOOGLE_SHEET_URL);
+        const text = await res.text();
+        const jsonText = text.substring(text.indexOf('{'), text.lastIndexOf('}') + 1);
+        const data = JSON.parse(jsonText);
+
+        const rows = data.table.rows || [];
+        rawQuestions = [];
+
+        rows.forEach((r, idx) => {
+          const c = r.c || [];
+          const cols = c.map(cell => cell ? String(cell.v || '').trim() : '');
+
+          const id = cols[0] || String(idx + 1);
+          const grade = cols[1] || '';
+          const unit = cols[2] || '';
+          const questionText = cols[3] || '';
+
+          const optKeys = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
+          let opts = {};
+          let optIdx = 4;
+          optKeys.forEach(k => {
+            opts[k] = cols[optIdx] || '';
+            optIdx++;
+          });
+
+          const answer = cols[12] || '';
+          const explanation = cols[13] || '';
+          const subject = cols[14] || '';
+
+          if (questionText) {
+            rawQuestions.push({
+              id, grade, unit, questionText, opts, answer, explanation, subject
+            });
+          }
+        });
+
+        questionUnits = buildQuestionUnits(rawQuestions);
+        initSubjectFilter();
+        showStatus(`題庫載入成功！共 ${sumUnitCount(questionUnits)} 題（1 個題組算 1 題，子題依序出題）。`, 'success');
+      } catch (err) {
+        console.error('載入題庫失敗:', err);
+        showStatus('題庫載入失敗，請檢查 Google 試算表公開權限或網路連線。', 'error');
+      }
+    }
+
+    function getFilteredUnitsBySubject() {
+      const selectedSubject = document.querySelector('input[name="subject-option"]:checked')?.value || 'ALL';
+      if (selectedSubject === 'ALL') return questionUnits;
+      return questionUnits.filter(u => u.subject === selectedSubject);
+    }
+
+    function initSubjectFilter() {
+      const subjects = [...new Set(questionUnits.map(u => u.subject))].filter(Boolean);
+      const container = document.getElementById('subject-filter-container');
+      const radioBox = document.getElementById('subject-radioes');
+
+      if (subjects.length === 0) {
+        container.classList.add('hidden');
+        document.getElementById('grade-label-num').innerText = '1';
+        document.getElementById('unit-label-num').innerText = '2';
+        initFilterOptions();
+        return;
+      }
+
+      container.classList.remove('hidden');
+      document.getElementById('grade-label-num').innerText = '2';
+      document.getElementById('unit-label-num').innerText = '3';
+
+      let html = `
+        <label class="flex items-center justify-between gap-2 px-3.5 py-2 rounded-xl border border-slate-200 hover:bg-slate-50 cursor-pointer">
+          <span class="flex items-center gap-2">
+            <input type="radio" name="subject-option" value="ALL" checked onchange="onSubjectChange()" class="text-brand-600 focus:ring-brand-500">
+            <span class="font-bold text-slate-800">全部科目</span>
+          </span>
+          <span class="text-xs font-semibold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full ml-1">(${sumUnitCount(questionUnits)} 題)</span>
+        </label>
+      `;
+
+      subjects.forEach(subj => {
+        const cnt = sumUnitCount(questionUnits.filter(u => u.subject === subj));
+        html += `
+          <label class="flex items-center justify-between gap-2 px-3.5 py-2 rounded-xl border border-slate-200 hover:bg-slate-50 cursor-pointer">
+            <span class="flex items-center gap-2">
+              <input type="radio" name="subject-option" value="${subj}" onchange="onSubjectChange()" class="text-brand-600 focus:ring-brand-500">
+              <span class="font-medium text-slate-800">${subj}</span>
+            </span>
+            <span class="text-xs font-semibold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full ml-1">(${cnt} 題)</span>
+          </label>
+        `;
+      });
+
+      radioBox.innerHTML = html;
+      initFilterOptions();
+    }
+
+    function onSubjectChange() {
+      initFilterOptions();
+    }
+
+    function initFilterOptions() {
+      const subjectUnits = getFilteredUnitsBySubject();
+      const grades = [...new Set(subjectUnits.map(u => u.grade))].filter(Boolean);
+      const gradeContainer = document.getElementById('grade-radioes');
+      gradeContainer.innerHTML = '';
+
+      if (grades.length === 0) {
+        gradeContainer.innerHTML = '<span class="text-slate-400 text-xs">找不到年級分類，請確認試算表格式。</span>';
+        document.getElementById('category-checkboxes').innerHTML = '<span class="text-slate-400 text-xs">無可用學習類別</span>';
+        return;
+      }
+
+      grades.forEach((g, idx) => {
+        const gCount = sumUnitCount(subjectUnits.filter(u => u.grade === g));
+        gradeContainer.innerHTML += `
+          <label class="flex items-center justify-between gap-2 p-2.5 rounded-xl border border-slate-200 hover:bg-slate-50 cursor-pointer">
+            <span class="flex items-center gap-2">
+              <input type="radio" name="grade-option" value="${g}" ${idx === 0 ? 'checked' : ''} onchange="onGradeChange()" class="text-brand-600 focus:ring-brand-500">
+              <span class="font-medium text-slate-800">${g}</span>
+            </span>
+            <span class="text-xs font-semibold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full">(${gCount} 題)</span>
+          </label>
+        `;
+      });
+
+      onGradeChange();
+    }
+
+    function onGradeChange() {
+      const selectedGrade = document.querySelector('input[name="grade-option"]:checked')?.value;
+      if (!selectedGrade) return;
+
+      const subjectUnits = getFilteredUnitsBySubject();
+      const filtered = subjectUnits.filter(u => u.grade === selectedGrade);
+      const units = [...new Set(filtered.map(u => u.unit))].filter(Boolean);
+      const unitContainer = document.getElementById('category-checkboxes');
+      unitContainer.innerHTML = '';
+
+      if (units.length === 0) {
+        unitContainer.innerHTML = '<span class="text-slate-400 text-xs">此年級無學習類別</span>';
+        return;
+      }
+
+      units.forEach(u => {
+        const uCount = sumUnitCount(filtered.filter(item => item.unit === u));
+        unitContainer.innerHTML += `
+          <label class="flex items-center justify-between gap-2 p-2 rounded-lg hover:bg-slate-50 cursor-pointer">
+            <span class="flex items-center gap-2">
+              <input type="checkbox" name="unit-checkbox" value="${u}" checked class="rounded border-slate-300 text-brand-600 focus:ring-brand-500">
+              <span class="text-slate-700">${u}</span>
+            </span>
+            <span class="text-xs font-semibold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full">(${uCount} 題)</span>
+          </label>
+        `;
+      });
+    }
+
+    function toggleAllCategories(select) {
+      document.querySelectorAll('input[name="unit-checkbox"]').forEach(cb => cb.checked = select);
+    }
+
+    function startQuiz(mode) {
+      const selectedSubject = document.querySelector('input[name="subject-option"]:checked')?.value || 'ALL';
+      const selectedGrade = document.querySelector('input[name="grade-option"]:checked')?.value;
+      const selectedUnits = Array.from(document.querySelectorAll('input[name="unit-checkbox"]:checked')).map(cb => cb.value);
+      const targetUnitCount = parseInt(document.getElementById('question-count').value, 10) || 10;
+
+      if (!selectedGrade) {
+        alert('請先選擇年級！');
+        return;
+      }
+      if (selectedUnits.length === 0) {
+        alert('請至少勾選一個學習類別！');
+        return;
+      }
+
+      const availableUnits = questionUnits.filter(item => {
+        const matchSubject = (selectedSubject === 'ALL' || item.subject === selectedSubject);
+        const matchGrade = (item.grade === selectedGrade);
+        const matchUnit = selectedUnits.includes(item.unit);
+        return matchSubject && matchGrade && matchUnit;
+      });
+
+      if (availableUnits.length === 0) {
+        alert('在您選擇的條件下找不到對應題目！');
+        return;
+      }
+
+      const shuffled = [...availableUnits].sort(() => 0.5 - Math.random());
+      const selectedUnitsList = [];
+      let accumulatedQuestionCount = 0;
+
+      for (const unitItem of shuffled) {
+        const weight = Number(unitItem.unitCount) || 1;
+        if (accumulatedQuestionCount + weight <= targetUnitCount || selectedUnitsList.length === 0) {
+          const sortedSubs = Array.isArray(unitItem.subQuestions)
+            ? [...unitItem.subQuestions].sort((a, b) => extractSubQuestionNumber(a) - extractSubQuestionNumber(b))
+            : [];
+          selectedUnitsList.push(Object.assign({}, unitItem, {
+            unitCount: 1,
+            subQuestions: sortedSubs
+          }));
+          accumulatedQuestionCount += weight;
+        }
+        if (accumulatedQuestionCount >= targetUnitCount) {
+          break;
+        }
+      }
+
+      const subjPrefix = selectedSubject !== 'ALL' ? `${selectedSubject} / ` : '';
+      const rangeText = `${subjPrefix}${selectedUnits.join(', ')}`;
+
+      const container = document.getElementById('quiz-container');
+      container.innerHTML = '';
+
+      if (mode === 'print') {
+        renderPrintView(selectedUnitsList, selectedGrade, rangeText, accumulatedQuestionCount);
+      } else {
+        renderInteractiveQuiz(selectedUnitsList, selectedGrade, rangeText, accumulatedQuestionCount);
+      }
+    }
+
+    let currentAnswerableQuestions = [];
+    let interactiveSession = {
+      unitTotal: 0,
+      total: 0,
+      correct: 0,
+      wrong: 0,
+      answeredCount: 0,
+      rangeText: '',
+      attemptedIds: new Set(),
+      correctIds: new Set(),
+      sessionWrongItems: []
+    };
+
+    function renderQuestionBlockHtml(q, qIndex, displayLabel, rangeText, isSubQuestion = false) {
+      let optsHtml = '';
+      ['A', 'B', 'C', 'D'].forEach(k => {
+        if (q.opts && q.opts[k]) {
+          const safeRange = String(rangeText || '').replace(/'/g, "\\'");
+          optsHtml += `
+            <label class="option-label-${qIndex} flex items-start gap-3 p-3 rounded-xl border border-slate-200 hover:bg-slate-50 cursor-pointer transition-colors">
+              <input type="radio" name="interactive_q_${qIndex}" value="${k}" onclick="handleOptionSelect(${qIndex}, '${k}', '${safeRange}')" class="mt-1.5 text-brand-600 focus:ring-brand-500">
+              <span class="text-slate-800 font-medium">${escapeHtmlText(k)}. ${makeWordsClickable(q.opts[k])}</span>
+            </label>
+          `;
+        }
+      });
+
+      return `
+        <div class="${isSubQuestion ? 'bg-slate-50/70 p-5 rounded-2xl border border-slate-200 space-y-3' : 'bg-white p-7 rounded-3xl shadow-sm border border-slate-200 space-y-4'} quiz-card-interactive" id="card_${qIndex}" data-answered="false">
+          <div class="text-xs font-bold text-brand-600 uppercase tracking-wider">${escapeHtmlText(displayLabel)}</div>
+          <div class="text-lg font-bold text-slate-900">${makeWordsClickable(q.questionText)}</div>
+          <div class="space-y-2 pt-1">${optsHtml}</div>
+          <div id="feedback_${qIndex}" class="hidden p-4 rounded-2xl text-sm font-semibold mt-3"></div>
+        </div>
+      `;
+    }
+
+    function renderInteractiveQuiz(unitsList, grade, rangeText, totalQuestionUnits = null) {
+      currentAnswerableQuestions = [];
+      document.getElementById('print-actions').classList.add('hidden');
+      document.getElementById('quiz-finish-actions').classList.add('hidden');
+
+      const unitCountSum = totalQuestionUnits !== null
+        ? totalQuestionUnits
+        : sumUnitCount(unitsList);
+
+      let qCounter = 0;
+      let cardsHtml = '';
+
+      unitsList.forEach((item, unitIdx) => {
+        if (item.unitType === 'reading_group' || item.unitType === 'cloze_group') {
+          const isCloze = item.unitType === 'cloze_group';
+          const groupTitle = isCloze ? '克漏字題組' : '閱讀題組';
+          const passageText = item.passage ? item.passage.questionText : '';
+          let subsHtml = '';
+
+          (item.subQuestions || []).forEach((sq, subIdx) => {
+            const currentIdx = qCounter++;
+            currentAnswerableQuestions.push(sq);
+            subsHtml += renderQuestionBlockHtml(
+              sq,
+              currentIdx,
+              `第 ${unitIdx + 1} 題（1 題組）- 依序第 ${subIdx + 1} 小題`,
+              rangeText,
+              true
+            );
+          });
+
+          cardsHtml += `
+            <div class="bg-white p-7 rounded-3xl shadow-sm border-2 border-brand-200 space-y-5">
+              <div class="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 pb-3">
+                <span class="text-sm font-black text-brand-700 bg-brand-50 px-3 py-1 rounded-full">📖 第 ${unitIdx + 1} 題（${groupTitle} #${item.id}｜1 題組｜共 ${(item.subQuestions || []).length} 小題依序作答）</span>
+                <span class="text-xs text-slate-500">${escapeHtmlText(item.subject ? item.subject + ' · ' : '')}${escapeHtmlText(item.unit || '')}</span>
+              </div>
+              <div class="bg-amber-50/60 p-5 rounded-2xl border border-amber-200/80 text-slate-900 article-content text-base leading-relaxed">${makeWordsClickable(passageText)}</div>
+              <div class="space-y-4">${subsHtml}</div>
+            </div>
+          `;
+        } else {
+          const q = item.question;
+          const currentIdx = qCounter++;
+          currentAnswerableQuestions.push(q);
+          cardsHtml += renderQuestionBlockHtml(
+            q,
+            currentIdx,
+            `第 ${unitIdx + 1} 題（1 題）${item.subject ? ' · ' + item.subject : ''}`,
+            rangeText,
+            false
+          );
+        }
+      });
+
+      interactiveSession = {
+        unitTotal: unitCountSum,
+        total: currentAnswerableQuestions.length,
+        correct: 0,
+        wrong: 0,
+        answeredCount: 0,
+        rangeText: rangeText,
+        attemptedIds: new Set(),
+        correctIds: new Set(),
+        sessionWrongItems: []
+      };
+
+      const container = document.getElementById('quiz-container');
+      const headerHtml = `
+        <div class="bg-white p-6 rounded-3xl shadow-sm border border-slate-200 mb-4 flex flex-wrap justify-between items-center gap-2">
+          <div class="font-bold text-slate-800">🎯 正在進行線上練習：${escapeHtmlText(grade)} (${escapeHtmlText(rangeText)})</div>
+          <div class="text-sm text-brand-600 font-bold">共 ${unitCountSum} 題（含 ${currentAnswerableQuestions.length} 小題作答）</div>
+        </div>
+      `;
+
+      container.innerHTML = headerHtml + cardsHtml;
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    function handleOptionSelect(idx, selectedKey, rangeText) {
+      const questionObj = currentAnswerableQuestions[idx] || {};
+      const correctAns = String(questionObj.answer || '').trim().toUpperCase();
+      const card = document.getElementById(`card_${idx}`);
+      if (!card || card.getAttribute('data-answered') === 'true') return;
+      card.setAttribute('data-answered', 'true');
+
+      if (!interactiveSession.total) {
+        interactiveSession.total = document.querySelectorAll('.quiz-card-interactive').length;
+        interactiveSession.unitTotal = interactiveSession.unitTotal || interactiveSession.total;
+        interactiveSession.rangeText = rangeText;
+      }
+
+      interactiveSession.answeredCount++;
+      interactiveSession.attemptedIds.add(questionObj.id || `q_${idx}`);
+
+      const feedback = document.getElementById(`feedback_${idx}`);
+      const radios = document.querySelectorAll(`input[name="interactive_q_${idx}"]`);
+      radios.forEach(r => r.disabled = true);
+
+      const expHtml = makeWordsClickable(questionObj.explanation || '無提供解析');
+
+      if (selectedKey === correctAns) {
+        interactiveSession.correct++;
+        interactiveSession.correctIds.add(questionObj.id || `q_${idx}`);
+        feedback.innerHTML = `✅ 答對了！<br><span class="font-normal text-xs mt-1 block">{{解析}} ${expHtml}</span>`;
+        feedback.className = "p-4 rounded-2xl text-sm font-semibold mt-3 bg-emerald-50 text-emerald-800 border border-emerald-200";
+      } else {
+        interactiveSession.wrong++;
+        feedback.innerHTML = `❌ 答錯了！正確答案是 [ ${escapeHtmlText(correctAns)} ]<br><span class="font-normal text-xs mt-1 block">{{解析}} ${expHtml}</span>`;
+        feedback.className = "p-4 rounded-2xl text-sm font-semibold mt-3 bg-red-50 text-red-800 border border-red-200";
+
+        const domQText = (card && card.querySelector('.text-lg.font-bold')?.textContent || '').trim();
+        const domOpts = {};
+        if (card) {
+          card.querySelectorAll('label').forEach(lbl => {
+            const inp = lbl.querySelector('input[type="radio"]');
+            const span = lbl.querySelector('span');
+            if (inp && span) {
+              const key = String(inp.value || '').trim().toUpperCase();
+              const fullTxt = String(span.textContent || '').trim();
+              domOpts[key] = fullTxt.replace(/^[A-Da-d][\.\)\s]+/, '').trim() || fullTxt;
+            }
+          });
+        }
+        const mergedOpts = Object.assign({}, domOpts, questionObj.opts || {});
+        const resolvedQText = String(questionObj.questionText || domQText || '').trim();
+
+        const wrongItemRecord = {
+          id: questionObj.id || `q_${idx}`,
+          number: idx + 1,
+          subject: questionObj.subject || '',
+          grade: questionObj.grade || '',
+          unit: questionObj.unit || '',
+          questionText: resolvedQText,
+          opts: mergedOpts,
+          answer: correctAns,
+          userAnswer: selectedKey,
+          explanation: questionObj.explanation || ''
+        };
+        interactiveSession.sessionWrongItems.push(wrongItemRecord);
+        if (!wrongQuestions.some(w => (w.id && wrongItemRecord.id && w.id === wrongItemRecord.id) || w.questionText === wrongItemRecord.questionText)) {
+          wrongQuestions.push(wrongItemRecord);
+        }
+      }
+      feedback.classList.remove('hidden');
+
+      if (interactiveSession.answeredCount === interactiveSession.total) {
+        recordQuizSession(
+          interactiveSession.total,
+          interactiveSession.correct,
+          interactiveSession.wrong,
+          interactiveSession.rangeText,
+          interactiveSession.sessionWrongItems,
+          Array.from(interactiveSession.attemptedIds),
+          Array.from(interactiveSession.correctIds)
+        );
+
+        saveUserDataToLocal(true);
+
+        const finishActions = document.getElementById('quiz-finish-actions');
+        document.getElementById('quiz-score-summary').innerText = `題組數：${interactiveSession.unitTotal} 題（作答小題：${interactiveSession.total} 題）｜ 答對：${interactiveSession.correct} 題 ｜ 答錯：${interactiveSession.wrong} 題`;
+        finishActions.classList.remove('hidden');
+        setTimeout(() => {
+          finishActions.scrollIntoView({ behavior: 'smooth' });
+        }, 200);
+      }
+    }
+
+    function renderPrintView(unitsList, grade, rangeText, totalQuestionUnits = null) {
+      document.getElementById('print-actions').classList.remove('hidden');
+      document.getElementById('quiz-finish-actions').classList.add('hidden');
+
+      const unitCountSum = totalQuestionUnits !== null
+        ? totalQuestionUnits
+        : sumUnitCount(unitsList);
+
+      const container = document.getElementById('quiz-container');
+      const answerEntries = [];
+
+      let html = `
+        <div class="bg-white p-8 rounded-3xl shadow-sm border border-slate-200 space-y-6">
+          <div class="text-center border-b pb-4">
+            <h1 class="text-2xl font-black text-slate-800">優華數位學習 — 專屬練習試卷</h1>
+            <p class="text-sm text-slate-500 mt-1">範圍：${escapeHtmlText(grade)} (${escapeHtmlText(rangeText)}) ｜ 共 ${unitCountSum} 題 ｜ 日期：${new Date().toLocaleDateString()}</p>
+          </div>
+          <div class="space-y-6">
+      `;
+
+      unitsList.forEach((item, unitIdx) => {
+        if (item.unitType === 'reading_group' || item.unitType === 'cloze_group') {
+          const isCloze = item.unitType === 'cloze_group';
+          const groupTitle = isCloze ? '克漏字題組' : '閱讀題組';
+          const passageText = item.passage ? item.passage.questionText : '';
+          let subsHtml = '';
+
+          (item.subQuestions || []).forEach((sq, subIdx) => {
+            let optsHtml = '';
+            ['A', 'B', 'C', 'D'].forEach(k => {
+              if (sq.opts && sq.opts[k]) {
+                optsHtml += `<div class="text-slate-800 py-0.5">(${escapeHtmlText(k)}) ${makeWordsClickable(sq.opts[k])}</div>`;
+              }
+            });
+
+            const ansLabel = `第 ${unitIdx + 1}-${subIdx + 1} 題 (${sq.id})`;
+            answerEntries.push({ label: ansLabel, q: sq });
+
+            subsHtml += `
+              <div class="space-y-1.5 p-4 rounded-xl bg-slate-50 border border-slate-200">
+                <div class="font-bold text-slate-900">${unitIdx + 1}-${subIdx + 1}. ${makeWordsClickable(sq.questionText)}</div>
+                <div class="pl-4 space-y-1">${optsHtml}</div>
+              </div>
+            `;
+          });
+
+          html += `
+            <div class="space-y-3 card-box p-5 rounded-xl border border-slate-200">
+              <div class="font-bold text-brand-700 text-base">📖 第 ${unitIdx + 1} 題（${groupTitle} #${escapeHtmlText(item.id)}｜1 題組）</div>
+              <div class="p-4 rounded-xl bg-amber-50/60 border border-amber-200/80 text-slate-900 article-content text-base">${makeWordsClickable(passageText)}</div>
+              <div class="space-y-3 pt-1">${subsHtml}</div>
+            </div>
+          `;
+        } else {
+          const q = item.question;
+          let optsHtml = '';
+          ['A', 'B', 'C', 'D'].forEach(k => {
+            if (q.opts && q.opts[k]) {
+              optsHtml += `<div class="text-slate-800 py-0.5">(${escapeHtmlText(k)}) ${makeWordsClickable(q.opts[k])}</div>`;
+            }
+          });
+
+          answerEntries.push({ label: `第 ${unitIdx + 1} 題`, q });
+
+          html += `
+            <div class="space-y-2 card-box p-4 rounded-xl border border-slate-100">
+              <div class="font-bold text-slate-900">${unitIdx + 1}. ${makeWordsClickable(q.questionText)}</div>
+              <div class="pl-4 space-y-1">${optsHtml}</div>
+            </div>
+          `;
+        }
+      });
+
+      html += `
+          </div>
+          <div class="page-break pt-6 border-t-2 border-dashed border-slate-300">
+            <h2 class="text-xl font-bold text-slate-800 mb-4">📋 參考答案與精選解析</h2>
+            <div class="space-y-3 text-sm">
+      `;
+
+      answerEntries.forEach(entry => {
+        html += `
+          <div class="p-3 bg-slate-50 rounded-xl border border-slate-200">
+            <span class="font-bold text-brand-700">${escapeHtmlText(entry.label)}：答案 [ ${escapeHtmlText(entry.q.answer)} ]</span>
+            <div class="text-slate-600 mt-1">{{解析}} ${makeWordsClickable(entry.q.explanation || '無提供解析')}</div>
+          </div>
+        `;
+      });
+
+      html += `</div></div></div>`;
+      container.innerHTML = html;
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    function renderWrongNotebook() {
+      const container = document.getElementById('wrong-list-container');
+      if (wrongQuestions.length === 0) {
+        container.innerHTML = `<div class="bg-white p-8 rounded-3xl text-center text-slate-400">目前沒有錯題紀錄，太棒了！繼續保持！</div>`;
+        return;
+      }
+
+      let html = `
+        <div class="bg-white p-8 rounded-3xl shadow-sm border border-slate-200 space-y-6">
+          <div class="text-center border-b pb-4">
+            <h1 class="text-2xl font-black text-slate-800">優華數位學習 — 個人專屬錯題複習講義</h1>
+            <p class="text-sm text-slate-500 mt-1">收錄所有答錯的題目與完整選項解析 ｜ 日期：${new Date().toLocaleDateString()}</p>
+          </div>
+          <div class="space-y-6">
+      `;
+
+      wrongQuestions.forEach((w, idx) => {
+        let optsHtml = '';
+        ['A', 'B', 'C', 'D'].forEach(k => {
+          if (w.opts && w.opts[k]) {
+            optsHtml += `<div class="text-slate-800 py-0.5">(${escapeHtmlText(k)}) ${makeWordsClickable(w.opts[k])}</div>`;
+          }
+        });
+
+        html += `
+          <div class="space-y-3 card-box p-5 rounded-2xl border border-slate-200 bg-slate-50/50">
+            <div class="flex justify-between items-center">
+              <span class="text-xs font-bold text-red-600 uppercase">錯題 #${idx + 1} (${escapeHtmlText(w.subject ? w.subject + ' · ' : '')}${escapeHtmlText(w.grade || '綜合')} - ${escapeHtmlText(w.unit || '複習')})</span>
+            </div>
+            <div class="text-base font-bold text-slate-900">${makeWordsClickable(w.questionText)}</div>
+            <div class="pl-4 space-y-1">${optsHtml}</div>
+            <div class="p-3 bg-white rounded-xl border border-slate-200 mt-2 text-sm">
+              <span class="font-bold text-brand-700">正確答案：[ ${escapeHtmlText(w.answer)} ]</span>
+              <div class="text-slate-600 mt-1">{{解析}} ${makeWordsClickable(w.explanation || '無提供解析')}</div>
+            </div>
+          </div>
+        `;
+      });
+
+      html += `</div></div>`;
+      container.innerHTML = html;
+    }
+
+    function renderVocabBank() {
+      const container = document.getElementById('vocab-list-container');
+      if (vocabBank.length === 0) {
+        container.innerHTML = `<div class="bg-white p-8 rounded-3xl text-center text-slate-400">尚無儲存的單字，在測驗中點擊單字即可加入！</div>`;
+        return;
+      }
+
+      let html = '';
+      vocabBank.forEach((v, idx) => {
+        const safeWord = String(v.word || '').replace(/'/g, "\\'");
+        html += `
+          <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 flex justify-between items-center gap-4">
+            <div class="space-y-1">
+              <div class="flex items-center gap-2">
+                <span class="text-lg font-bold text-brand-700">${escapeHtmlText(v.word)}</span>
+                <button onclick="speakWord('${safeWord}')" class="px-2.5 py-1 bg-brand-100 hover:bg-brand-200 text-brand-700 rounded-full text-xs font-bold">🔊 發音</button>
+              </div>
+              <div class="text-sm text-slate-600">${escapeHtmlText(v.definition)}</div>
+            </div>
+            <button onclick="removeVocab(${idx})" class="text-xs text-red-500 hover:text-red-700 font-bold px-3 py-1.5 rounded-lg border border-red-200">刪除</button>
+          </div>
+        `;
+      });
+      container.innerHTML = html;
+    }
+
+    function removeVocab(idx) {
+      vocabBank.splice(idx, 1);
+      saveUserDataToLocal(true);
+      renderVocabBank();
+      updateVocabBadge();
+    }
+
+    function clearWrongQuestions() {
+      if (confirm('確定要清空所有錯題嗎？')) {
+        wrongQuestions = [];
+        saveUserDataToLocal(true);
+        renderWrongNotebook();
+        updateWrongBadge();
+      }
+    }
+
+    function startWrongPractice() {
+      if (wrongQuestions.length === 0) {
+        alert('目前沒有錯題可以練習！');
+        return;
+      }
+      const wrongUnits = wrongQuestions.map(q => ({
+        unitType: 'single',
+        unitCount: 1,
+        id: q.id,
+        subject: q.subject || '',
+        grade: q.grade || '',
+        unit: q.unit || '',
+        question: q
+      }));
+      switchTab('quiz');
+      renderInteractiveQuiz(wrongUnits, '錯題本特訓', '個人錯題複習');
+    }
+
+    function closeVocabPanel() {
+      document.getElementById('vocab-card-panel').classList.add('hidden');
+    }
+
+    function confirmAddVocab() {
+      if (!activeSelectedWord) return;
+      const defToSave = (!activeWordDefinition || activeWordDefinition === '查詢中文中...' || activeWordDefinition === '查詢中...')
+        ? '已加入個人單字庫'
+        : activeWordDefinition;
+
+      if (!vocabBank.some(v => v.word.toLowerCase() === activeSelectedWord.toLowerCase())) {
+        vocabBank.push({ word: activeSelectedWord, definition: defToSave });
+        saveUserDataToLocal(true);
+        updateVocabBadge();
+        alert(`已成功將 "${activeSelectedWord}" 加入您的單字庫！`);
+      } else {
+        alert(`"${activeSelectedWord}" 已經在您的單字庫中囉！`);
+      }
+      closeVocabPanel();
+    }
+
+    function speakActiveWord() {
+      if (!activeSelectedWord) return;
+      speakWord(activeSelectedWord);
+    }
+
+    function showStatus(msg, type) {
+      const box = document.getElementById('status-msg');
+      box.innerText = msg;
+      box.classList.remove('hidden', 'bg-emerald-50', 'text-emerald-800', 'border-emerald-200', 'bg-amber-50', 'text-amber-800', 'border-amber-200', 'bg-red-50', 'text-red-800', 'border-red-200');
+      if (type === 'success') {
+        box.classList.add('bg-emerald-50', 'text-emerald-800', 'border-emerald-200');
+      } else if (type === 'info') {
+        box.classList.add('bg-amber-50', 'text-amber-800', 'border-amber-200');
+      } else {
+        box.classList.add('bg-red-50', 'text-red-800', 'border-red-200');
+      }
+    }
+
+    function switchTab(tabName) {
+      document.getElementById('tab-admin').classList.add('hidden');
+      document.getElementById('tab-quiz').classList.add('hidden');
+      document.getElementById('tab-wrong').classList.add('hidden');
+      document.getElementById('tab-vocab-bank').classList.add('hidden');
+
+      if (tabName === 'quiz') {
+        document.getElementById('tab-quiz').classList.remove('hidden');
+      } else if (tabName === 'wrong-notebook') {
+        document.getElementById('tab-wrong').classList.remove('hidden');
+        renderWrongNotebook();
+      } else if (tabName === 'vocab-bank') {
+        document.getElementById('tab-vocab-bank').classList.remove('hidden');
+        renderVocabBank();
+      }
+    }
+
+    function updateWrongBadge() {
+      const badge = document.getElementById('wrong-count-badge');
+      if (wrongQuestions.length > 0) {
+        badge.innerText = `${wrongQuestions.length} 題`;
+        badge.classList.remove('hidden');
+      } else {
+        badge.classList.add('hidden');
+      }
+    }
+
+    function updateVocabBadge() {
+      document.getElementById('vocab-count-badge').innerText = vocabBank.length;
+    }
+  </script>
+</body>
+</html>
